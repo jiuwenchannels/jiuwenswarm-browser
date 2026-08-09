@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JiuwenSwarm</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1e1e2e;
+      --surface: #2a2a3e;
+      --border: #383854;
+      --accent: #7c6af7;
+      --text: #cdd6f4;
+      --text-dim: #7f849c;
+      --green: #a6e3a1;
+      --red: #f38ba8;
+    }
+
+    body {
+      width: 260px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      font-size: 13px;
+      padding: 12px;
+    }
+
+    .header {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 12px;
+    }
+    .logo { font-weight: 700; font-size: 15px; }
+
+    .status-row {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px; background: var(--surface);
+      border-radius: 6px; margin-bottom: 10px;
+    }
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red); flex-shrink: 0;
+    }
+    .status-dot.connected { background: var(--green); }
+    #status-text { color: var(--text-dim); font-size: 12px; }
+
+    .session-row {
+      padding: 8px; background: var(--surface);
+      border-radius: 6px; margin-bottom: 10px;
+    }
+    .session-row label { display: block; color: var(--text-dim); font-size: 11px; margin-bottom: 3px; }
+    #session-name { font-weight: 600; }
+
+    .btn-row { display: flex; gap: 6px; }
+    button {
+      flex: 1; padding: 7px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 12px; font-weight: 600;
+    }
+    #open-panel-btn { background: var(--accent); color: #fff; }
+    #open-options-btn { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+    #pin-row {
+      margin-top: 8px;
+      display: flex; align-items: center; gap: 6px;
+      color: var(--text-dim); font-size: 12px;
+    }
+    #pin-count { font-weight: 600; color: var(--text); }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="../icons/icon-32.png" width="20" height="20" alt="" />
+    <span class="logo">JiuwenSwarm</span>
+  </div>
+
+  <div class="status-row">
+    <div id="status-dot" class="status-dot"></div>
+    <span id="status-text">Connecting…</span>
+  </div>
+
+  <div class="session-row">
+    <label>Active session</label>
+    <div id="session-name">—</div>
+  </div>
+
+  <div class="btn-row">
+    <button id="open-panel-btn">Open panel</button>
+    <button id="open-options-btn">⚙ Settings</button>
+  </div>
+
+  <div id="pin-row">
+    <span>📌 <span id="pin-count">0</span> pages pinned</span>
+  </div>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JiuwenSwarm</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1e1e2e;
+      --surface: #2a2a3e;
+      --border: #383854;
+      --accent: #7c6af7;
+      --text: #cdd6f4;
+      --text-dim: #7f849c;
+      --green: #a6e3a1;
+      --red: #f38ba8;
+      --header-h: 48px;
+      --context-h: 36px;
+      --chat-h: 52px;
+    }
+
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 13px; }
+
+    /* Header */
+    #header {
+      display: flex; align-items: center; justify-content: space-between;
+      height: var(--header-h); padding: 0 10px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #header .logo { font-weight: 700; font-size: 14px; letter-spacing: .5px; }
+    #header .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--red); transition: background .3s;
+    }
+    #header .status-dot.connected { background: var(--green); }
+    #new-session-btn {
+      background: var(--accent); color: #fff; border: none; border-radius: 4px;
+      padding: 3px 8px; cursor: pointer; font-size: 12px;
+    }
+
+    /* Context bar */
+    #context-bar {
+      display: flex; align-items: center; gap: 6px;
+      height: var(--context-h); padding: 0 10px;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      flex-shrink: 0; overflow-x: auto;
+    }
+    #context-bar .pin-chip {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--border); border-radius: 12px;
+      padding: 2px 8px; font-size: 11px; white-space: nowrap;
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis;
+    }
+    #context-bar .pin-chip button {
+      background: none; border: none; color: var(--text-dim);
+      cursor: pointer; font-size: 11px; padding: 0;
+    }
+    #pin-btn {
+      background: none; border: 1px solid var(--border); color: var(--text-dim);
+      border-radius: 4px; padding: 2px 6px; cursor: pointer; font-size: 11px;
+      flex-shrink: 0;
+    }
+    #pin-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Chat iframe */
+    #chat-frame {
+      flex: 1; border: none; width: 100%;
+      min-height: 0; /* critical for flex shrink */
+    }
+
+    /* Layout */
+    body { display: flex; flex-direction: column; }
+    #session-picker {
+      position: absolute; top: var(--header-h); left: 0; right: 0;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      z-index: 10; display: none; max-height: 280px; overflow-y: auto;
+    }
+    #session-picker.open { display: block; }
+    #session-picker .session-item {
+      padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border);
+    }
+    #session-picker .session-item:hover { background: var(--border); }
+    #session-picker .session-item.active { border-left: 3px solid var(--accent); }
+
+    #session-label {
+      max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      cursor: pointer; font-size: 12px; color: var(--text-dim);
+    }
+    #session-label:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <div id="header">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="logo">九文 Swarm</span>
+      <span id="status-dot" class="status-dot"></span>
+    </div>
+    <span id="session-label" title="Click to switch session">No session</span>
+    <button id="new-session-btn">+ New</button>
+  </div>
+
+  <div id="session-picker"></div>
+
+  <div id="context-bar">
+    <button id="pin-btn">📌 Pin page</button>
+    <div id="pin-chips"></div>
+  </div>
+
+  <iframe id="chat-frame" src="../webview/chat.html" sandbox="allow-scripts allow-same-origin"></iframe>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>

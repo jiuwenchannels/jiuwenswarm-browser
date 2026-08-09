@@ -1,0 +1,24 @@
+{
+  "name": "jiuwenswarm-browser",
+  "version": "0.1.0",
+  "private": true,
+  "description": "JiuwenSwarm browser extension — AI research assistant for any web page",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "node scripts/sync-webview.js && vite build",
+    "pack": "node scripts/pack.js",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/mozilla__readability": "^0.5.0",
+    "typescript": "^5.4.0",
+    "vite": "^5.2.0",
+    "vite-plugin-copy": "^0.1.6",
+    "archiver": "^7.0.0"
+  }
+}
