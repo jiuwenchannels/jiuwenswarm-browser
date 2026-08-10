@@ -8,19 +8,22 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #1e1e2e;
-      --surface: #2a2a3e;
-      --border: #383854;
-      --accent: #7c6af7;
-      --text: #cdd6f4;
-      --text-dim: #7f849c;
-      --green: #a6e3a1;
-      --red: #f38ba8;
+      /* JiuwenSwarm default theme (light) — styles/themes/default/light.css */
+      --bg: #f5f7f9;
+      --surface: #ffffff;
+      --border: #e4e4e7;
+      --accent: #2563eb;
+      --accent-hover: #3b82f6;
+      --text: #191919;
+      --text-dim: #777777;
+      --green: #16a34a;
+      --red: #dc2626;
       --header-h: 48px;
       --context-h: 36px;
+      color-scheme: light;
     }
 
-    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; font-size: 13px; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Microsoft YaHei", "PingFang SC", "Segoe UI", system-ui, sans-serif; font-size: 13px; }
     body { display: flex; flex-direction: column; }
 
     /* ── Header ── */

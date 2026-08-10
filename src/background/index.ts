@@ -215,9 +215,17 @@ async function handleSidePanelMsg(
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === MSG.PAGE_CONTEXT && sender.tab?.id != null) {
+  if (msg.action === MSG.PAGE_CONTENT && sender.tab?.id != null) {
     cache.set(sender.tab.id, msg.context);
     sendResponse({ ok: true });
+    return false;
+  }
+  if (msg.action === MSG.GET_STATUS) {
+    sendResponse({
+      connected: client.isConnected,
+      activeSessionId: sessionMgr.activeSessionId,
+    });
+    return false;
   }
   // Sync response required — return false (no async needed)
   return false;
