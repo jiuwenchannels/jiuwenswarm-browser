@@ -7,9 +7,13 @@ export const CHANNEL_ID = "browser";
 export const WS_URL = (host = DEFAULT_HOST, port = DEFAULT_PORT): string =>
   `ws://${host}:${port}/ws`;
 
-/** chrome.storage.local keys */
+/**
+ * chrome.storage.local keys.
+ * Sessions are server-owned — the server's session registry is the single source
+ * of truth, shared across the web app and extension. Only the active session
+ * pointer and browser-specific state (pinned pages, settings) are stored locally.
+ */
 export const STORAGE_KEYS = {
-  SESSIONS: "jiuwen_sessions",
   ACTIVE_SESSION: "jiuwen_active_session",
   PINNED_PAGES: "jiuwen_pinned_pages",
   SETTINGS: "jiuwen_settings",

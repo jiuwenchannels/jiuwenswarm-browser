@@ -1,9 +1,10 @@
 /**
  * Typed wrappers around chrome.storage.local.
  *
- * All public functions return Promises so callers can use async/await cleanly.
- * No polling — callers that need live updates should add their own
- * chrome.storage.onChanged listener.
+ * Sessions are server-owned. The extension stores only:
+ *   - ACTIVE_SESSION — which session is currently selected (pointer only)
+ *   - PINNED_PAGES   — browser-specific research context (extracted page text)
+ *   - SETTINGS       — host/port and behaviour preferences
  */
 
 import { STORAGE_KEYS } from "./constants";
@@ -11,21 +12,11 @@ import {
   DEFAULT_SETTINGS,
   ExtensionSettings,
   PinnedPage,
-  ResearchSession,
 } from "./types";
 
 // ---------------------------------------------------------------------------
-// Sessions
+// Active session pointer (server owns the full session list)
 // ---------------------------------------------------------------------------
-
-export async function loadSessions(): Promise<ResearchSession[]> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.SESSIONS);
-  return (result[STORAGE_KEYS.SESSIONS] as ResearchSession[]) ?? [];
-}
-
-export async function saveSessions(sessions: ResearchSession[]): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.SESSIONS]: sessions });
-}
 
 export async function loadActiveSessionId(): Promise<string | null> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_SESSION);

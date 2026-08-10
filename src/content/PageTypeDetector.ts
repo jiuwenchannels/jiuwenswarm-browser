@@ -9,6 +9,10 @@ export type PageType =
   | "arxiv"
   | "sec"
   | "pubmed"
+  | "wikipedia"
+  | "youtube"
+  | "twitter"
+  | "hackernews"
   | "pdf"
   | "generic";
 
@@ -27,6 +31,22 @@ export function detectPageType(url: string): PageType {
     }
     if (hostname === "pubmed.ncbi.nlm.nih.gov" || hostname.includes("ncbi.nlm.nih.gov")) {
       return "pubmed";
+    }
+    if (hostname.includes("wikipedia.org")) {
+      return "wikipedia";
+    }
+    if (hostname === "www.youtube.com" || hostname === "youtu.be" || hostname === "youtube.com") {
+      return "youtube";
+    }
+    if (
+      hostname === "twitter.com" ||
+      hostname === "x.com" ||
+      hostname === "mobile.twitter.com"
+    ) {
+      return "twitter";
+    }
+    if (hostname === "news.ycombinator.com") {
+      return "hackernews";
     }
     if (
       pathname.endsWith(".pdf") ||

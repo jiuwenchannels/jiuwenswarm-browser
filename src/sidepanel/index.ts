@@ -32,9 +32,16 @@ const picker = new SessionPicker(sessionPickerEl, sessionLabel, (id) => {
   loadPinnedPages(id);
 });
 
-const contextBar = new ContextBar(pinChipsEl, async (id) => {
-  await removePinnedPage(id);
-});
+const contextBar = new ContextBar(
+  pinChipsEl,
+  async (id) => {
+    await removePinnedPage(id);
+  },
+  (page) => {
+    // Retry: re-pin the same tab to get fresh context
+    bridge.retryPin(page.tabId, page.id);
+  }
+);
 
 // ---------------------------------------------------------------------------
 // Background event bus

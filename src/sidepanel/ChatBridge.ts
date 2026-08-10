@@ -67,6 +67,15 @@ export class ChatBridge {
     this._send({ action: MSG.NEW_SESSION, title, mode });
   }
 
+  /**
+   * Re-pin a tab to get fresh context, replacing the old pinned-page entry.
+   * Background removes the old pin by id then re-extracts and re-adds.
+   */
+  retryPin(tabId: number, oldPinId: string): void {
+    this._send({ action: MSG.UNPIN_TAB, id: oldPinId });
+    this._send({ action: MSG.PIN_TAB, tabId });
+  }
+
   private _send(msg: Record<string, unknown>): void {
     if (!this._port) {
       // Reconnect

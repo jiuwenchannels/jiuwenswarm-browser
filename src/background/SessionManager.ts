@@ -1,28 +1,34 @@
 /**
  * Manages research session lifecycle in the background service worker.
  *
- * Source of truth is chrome.storage.local (persists across SW restarts).
- * The background SW syncs session list from the local server on connect,
- * and creates/deletes sessions via the WS protocol.
+ * The server is the single source of truth for the session list — the same
+ * sessions are visible in the web app and the extension. The extension stores
+ * only the active session pointer in chrome.storage.local.
+ *
+ * Session list lives in memory only; it is refreshed from the server on every
+ * connect and after every create/delete. A cold SW restart triggers a refresh
+ * automatically through the connect → init → refresh flow.
  */
 
-import { nanoid } from "nanoid";
 import { createLogger } from "@shared/logger";
 import { makeEnvelope } from "@shared/protocol";
-import {
-  loadSessions,
-  saveSessions,
-  loadActiveSessionId,
-  saveActiveSessionId,
-} from "@shared/storage";
+import { loadActiveSessionId, saveActiveSessionId } from "@shared/storage";
 import { AgentMode, ResearchSession } from "@shared/types";
 import type { WsClient } from "./WsClient";
 
 const log = createLogger("bg/sessions");
 
+type ServerSessionRow = {
+  session_id: string;
+  title: string;
+  created_at: string;
+  mode: string;
+};
+
 type ChangeListener = (sessions: ResearchSession[], activeId: string | null) => void;
 
 export class SessionManager {
+  /** In-memory cache populated from server — not persisted locally. */
   private _sessions: ResearchSession[] = [];
   private _activeSessionId: string | null = null;
   private _listeners: Set<ChangeListener> = new Set();
@@ -41,43 +47,28 @@ export class SessionManager {
     return this._sessions.find((s) => s.id === this._activeSessionId);
   }
 
-  /** Load persisted state from storage. Called once on SW startup. */
+  /**
+   * Load the active-session pointer from local storage, then request the
+   * session list from the server. Called once on SW startup (after connect).
+   */
   async init(): Promise<void> {
-    this._sessions = await loadSessions();
     this._activeSessionId = await loadActiveSessionId();
-    log.info(`loaded ${this._sessions.length} sessions, active=${this._activeSessionId}`);
+    log.info("init, active pointer=", this._activeSessionId);
     this._notify();
   }
 
-  /** Refresh session list from the server. */
+  /** Ask the server for the current session list. */
   refresh(): void {
     this._client.send(makeEnvelope("list_sessions", {}));
   }
 
-  /** Create a new research session both locally and on the server. */
-  async createSession(
-    title: string,
-    mode: AgentMode = "research"
-  ): Promise<ResearchSession> {
-    const now = new Date().toISOString();
-    const session: ResearchSession = {
-      id: nanoid(),
-      title,
-      mode,
-      createdAt: now,
-      updatedAt: now,
-      pinnedPageIds: [],
-    };
-    this._sessions = [session, ...this._sessions];
-    this._activeSessionId = session.id;
-    await this._persist();
-    this._notify();
-
-    this._client.send(
-      makeEnvelope("create_session", { title, mode }, session.id)
-    );
-    log.info("created session", session.id, title);
-    return session;
+  /**
+   * Create a new session on the server. The session list updates when the
+   * server responds with a `sessions` or `session_created` envelope.
+   */
+  createSession(title: string, mode: AgentMode = "research"): void {
+    this._client.send(makeEnvelope("create_session", { title, mode }));
+    log.info("create_session sent", title, mode);
   }
 
   async setActiveSession(id: string): Promise<void> {
@@ -90,26 +81,52 @@ export class SessionManager {
     this._notify();
   }
 
-  /** Called by background/index.ts when a 'sessions' envelope arrives. */
-  handleServerSessions(serverSessions: Array<{ session_id: string; title: string; created_at: string; mode: string }>): void {
-    // Merge: keep local sessions, add any server-only ones
-    const localIds = new Set(this._sessions.map((s) => s.id));
-    for (const ss of serverSessions) {
-      if (!localIds.has(ss.session_id)) {
-        this._sessions.push({
-          id: ss.session_id,
-          title: ss.title,
-          mode: ss.mode as AgentMode,
-          createdAt: ss.created_at,
-          updatedAt: ss.created_at,
-          pinnedPageIds: [],
-        });
-      }
+  /**
+   * Replace the in-memory session list with the authoritative server list.
+   * Called whenever a `sessions` envelope arrives.
+   */
+  handleServerSessions(serverSessions: ServerSessionRow[]): void {
+    this._sessions = serverSessions
+      .map((ss) => ({
+        id: ss.session_id,
+        title: ss.title,
+        mode: ss.mode as AgentMode,
+        createdAt: ss.created_at,
+        updatedAt: ss.created_at,
+        pinnedPageIds: [],
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // If the active pointer no longer exists on the server, clear it
+    if (
+      this._activeSessionId &&
+      !this._sessions.find((s) => s.id === this._activeSessionId)
+    ) {
+      log.warn("active session no longer on server, clearing pointer");
+      this._activeSessionId = null;
+      saveActiveSessionId(null).catch(() => {});
     }
-    this._sessions.sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    this._persist().catch((e) => log.error("persist failed", e));
+
+    log.info(`server sessions updated: ${this._sessions.length} sessions`);
+    this._notify();
+  }
+
+  /**
+   * Handle a `session_created` envelope — add the new session and activate it.
+   */
+  handleSessionCreated(row: ServerSessionRow): void {
+    const session: ResearchSession = {
+      id: row.session_id,
+      title: row.title,
+      mode: row.mode as AgentMode,
+      createdAt: row.created_at,
+      updatedAt: row.created_at,
+      pinnedPageIds: [],
+    };
+    this._sessions = [session, ...this._sessions];
+    this._activeSessionId = session.id;
+    saveActiveSessionId(session.id).catch(() => {});
+    log.info("session created and activated", session.id, session.title);
     this._notify();
   }
 
@@ -126,10 +143,5 @@ export class SessionManager {
         log.error("listener threw", e);
       }
     }
-  }
-
-  private async _persist(): Promise<void> {
-    await saveSessions(this._sessions);
-    await saveActiveSessionId(this._activeSessionId);
   }
 }

@@ -13,7 +13,7 @@
 import { createLogger } from "@shared/logger";
 import { MSG, MAX_CONTEXT_CHARS, COMMANDS } from "@shared/constants";
 import { makeEnvelope } from "@shared/protocol";
-import { addPinnedPage, getPinnedPagesBySession } from "@shared/storage";
+import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
 import { PinnedPage } from "@shared/types";
 import { nanoid } from "nanoid";
 
@@ -49,6 +49,16 @@ async function init(): Promise<void> {
     if (env.type === "sessions") {
       const p = env.payload as { sessions: Array<{ session_id: string; title: string; created_at: string; mode: string }> };
       sessionMgr.handleServerSessions(p.sessions ?? []);
+    }
+    if (env.type === "session_created") {
+      const p = env.payload as { session_id: string; title: string; created_at: string; mode: string };
+      sessionMgr.handleSessionCreated(p);
+      // Broadcast updated session list to side panel
+      broadcastToSidePanel({
+        action: "sessions",
+        sessions: sessionMgr.sessions,
+        activeId: sessionMgr.activeSessionId,
+      });
     }
     // Forward all events to side panel ports
     broadcastToSidePanel(env);
@@ -147,6 +157,12 @@ async function handleSidePanelMsg(
       break;
     }
 
+    case MSG.UNPIN_TAB: {
+      const id = msg.id as string;
+      await removePinnedPage(id);
+      break;
+    }
+
     case MSG.LIST_SESSIONS:
       port.postMessage({
         action: "sessions",
@@ -156,11 +172,12 @@ async function handleSidePanelMsg(
       break;
 
     case MSG.NEW_SESSION: {
-      const session = await sessionMgr.createSession(
+      // Fire-and-forget — server responds with session_created envelope which
+      // triggers handleSessionCreated() and broadcasts updated sessions to panel
+      sessionMgr.createSession(
         (msg.title as string) || "New session",
         (msg.mode as "research" | "chat" | "summarize" | "compare") || "research"
       );
-      port.postMessage({ action: "session_created", session });
       break;
     }
 

@@ -1,21 +1,24 @@
 # Roadmap
 
-## Current State — MVP (v0.1)
+## What's Implemented
 
-The initial release delivers the core research loop:
-
+### Scaffold & Core Loop (v0.1)
 - [x] MV3 Chrome extension scaffold (service worker, content scripts, side panel, popup, options)
 - [x] WebSocket connection to local JiuwenSwarm server with auto-reconnect
-- [x] Page context extraction via Readability.js with 5 specialized adapters (GitHub, arXiv, SEC, PubMed, generic)
 - [x] Research sessions with pinned-page context aggregation
-- [x] Side panel with session picker, context bar (pinned page chips), and chat iframe
+- [x] Side panel: session picker, context bar (pinned page chips), shared chat iframe
 - [x] Keyboard shortcuts: open panel, pin page, ask about selection
 - [x] Right-click context menu: ask, pin, summarize
-- [x] Chrome local storage persistence for sessions and pinned pages
-- [x] Settings page: server host/port, default mode, behavior toggles
-- [x] Text highlight injector (Annotator)
-- [x] Form fill assist (FormAssist)
+- [x] Settings page: server host/port, default mode, behaviour toggles
+- [x] Text highlight injector (Annotator); form fill assist (FormAssist)
 - [x] SPA navigation detection (MutationObserver re-push on URL change)
+
+### Content Quality & Session Unification (v0.2)
+- [x] **Session unification** — server is single source of truth; extension stores only `activeSessionId` pointer; sessions created in extension appear in the web app and vice versa
+- [x] **9 page type adapters** — GitHub, arXiv, SEC EDGAR, PubMed, Wikipedia, YouTube, Twitter/X, Hacker News, generic (Readability.js)
+- [x] **Paragraph-boundary truncation** — 80% head / 20% tail split; cuts at `\n\n`; preserves document conclusions; replaces hard character slice
+- [x] **Extraction quality signals** — character count tooltip on each chip; ⚠ warning chip for < 200 chars extracted; PDF badge; retry button for low-extraction and PDF pages
+- [x] **PDF detection** — early return with server-tool hint stub; `read_pdf` server-side path planned for v0.3
 
 ---
 
@@ -38,58 +41,8 @@ They serve fundamentally different interaction patterns:
 | **Unique capability** | Rich panels: teams, skills, agents, code review, cron | Content script access to any live page |
 | **Best for** | Focused development and research sessions | Reading-while-researching workflows |
 
-The extension should be thought of as a thin ambient layer that feeds content
-and quick interactions into the same backend as the web app — not as a standalone product.
-
-### Session Unification (Target: v0.2)
-
-The MVP extension manages sessions locally in `chrome.storage.local` with its own
-`SessionManager`. This is a mistake that should be corrected early: the web app and the
-extension connect to the same server, which already maintains the session registry.
-
-**Target state:** The extension drops local session storage entirely and relies on the
-server's `list_sessions` / `create_session` protocol (already wired in `WsClient.ts`).
-A session started in the extension appears in the web app's sidebar, and vice versa.
-The user has one unified session history regardless of which surface they use.
-
-**What changes:**
-- `SessionManager.ts`: remove `saveSessions()` / `loadSessions()` local calls; treat
-  the server as the single source of truth; keep `chrome.storage.local` only for the
-  `activeSessionId` pointer.
-- `storage.ts`: drop `SESSIONS` key; keep `ACTIVE_SESSION`, `PINNED_PAGES`, `SETTINGS`.
-- Side panel: on connect, call `list_sessions` and render the full server-side list.
-
-**What stays extension-only:** pinned page metadata (`PinnedPage` objects with extracted
-text) lives in `chrome.storage.local` because it is browser-specific state the server
-does not need to own.
-
----
-
-## v0.2 — Content Quality & Reliability
-
-**Goal:** Make the extracted content reliably useful for the agent.
-
-### PDF Text Extraction
-- Detect PDFs displayed inline in Chrome (via `embed` or `object` tags)
-- Route extraction to a server-side tool (`read_pdf`) that uses `pdfminer` or `pypdf`
-- Show a "PDF — server extraction" badge in the context bar chip
-
-### Better Truncation Strategy
-- Current: hard character cut. Replace with semantic chunking:
-  - Cut at paragraph boundaries
-  - Include document beginning + ending (filings often have summary sections at both ends)
-  - Let the user choose "full" vs. "summary" extraction per pin
-
-### Extraction Quality Signals
-- Show character count per chip in the context bar tooltip
-- Flag pages where extraction returned < 200 characters (likely blocked or JS-only pages)
-- Retry button on chips for pages where extraction failed
-
-### Additional Adapters
-- **Wikipedia**: extract lead section + sections table; skip references/external links
-- **YouTube**: extract auto-generated transcript via `ytInitialData`; include video description
-- **Twitter/X**: extract tweet thread text; handle quoted tweets
-- **Hacker News**: extract OP text + top comments
+The extension is a thin ambient layer that feeds content and quick interactions into
+the same backend as the web app — not a standalone product. Sessions are shared.
 
 ---
 
@@ -103,6 +56,7 @@ Expose the following tools to the server-side agent when the channel is `browser
 | Tool | Description |
 |---|---|
 | `read_page` | Return full extracted text of a given tab URL |
+| `read_pdf` | Server-side PDF text extraction via `pdfminer` / `pypdf` — unblocks inline PDFs |
 | `get_selection` | Return current text selection in active tab |
 | `highlight_text(text)` | Highlight a passage in the active tab |
 | `fill_form(fields)` | Fill form fields by label or id |
@@ -210,6 +164,5 @@ not just the chat transcript.
 | **Databricks / Colab adapter** | Detect notebook-like environments, extract cell outputs |
 | **Auto-summarize on pin** | Immediately ask the agent for a 3-sentence summary when a page is pinned |
 | **Link graph** | Visualize connections between pinned pages based on shared topics |
-| **Voice input** | Web Speech API → text; note: voice in/out already exists in the web app, extension can expose the same capability via the shared chat iframe |
-| **Open in web app** | One-click to open the current session in the full JiuwenSwarm web app for access to teams, skills, agents, and code panels |
+| **Voice input** | Web Speech API → text; voice in/out already exists in the web app; extension can expose the same capability via the shared chat iframe |
 | **Cron research jobs** | Schedule recurring research tasks (web app has cron panel server-side; extension surfaces a simplified "monitor this topic" shortcut) |
