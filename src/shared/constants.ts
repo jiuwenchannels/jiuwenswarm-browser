@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
   ACTIVE_SESSION: "jiuwen_active_session",
   PINNED_PAGES: "jiuwen_pinned_pages",
   SETTINGS: "jiuwen_settings",
+  ANNOTATIONS: "jiuwen_annotations",
+  NOTES: "jiuwen_notes",
 } as const;
 
 /** Maximum number of pages that can be pinned in one research session */
@@ -44,6 +46,7 @@ export const MSG = {
   // popup ↔ background
   GET_STATUS: "get_status",
   STATUS: "status",
+  OPEN_PANEL: "open_panel",
   // sidepanel ↔ background
   SEND_AGENT: "send_agent",
   AGENT_EVENT: "agent_event",
@@ -55,4 +58,12 @@ export const MSG = {
   NEW_SESSION: "new_session",
   // background → content (agent tool dispatch)
   SCROLL_TO: "scroll_to",
+  // background → content (annotation restoration on page load)
+  RESTORE_ANNOTATIONS: "restore_annotations",
+  // content → background (user edited annotation note or deleted annotation)
+  ANNOTATION_UPDATE: "annotation_update",
+  ANNOTATION_REMOVE: "annotation_remove",
+  // sidepanel ↔ background (session notes)
+  LOAD_NOTES: "load_notes",
+  SAVE_NOTES: "save_notes",
 } as const;

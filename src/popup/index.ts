@@ -43,10 +43,8 @@ chrome.runtime.sendMessage({ action: MSG.GET_STATUS }, async (resp) => {
 
 openPanelBtn.addEventListener("click", async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.windowId != null) {
-    await chrome.sidePanel.open({ windowId: tab.windowId });
-    window.close();
-  }
+  chrome.runtime.sendMessage({ action: MSG.OPEN_PANEL, windowId: tab?.windowId });
+  window.close();
 });
 
 openOptionsBtn.addEventListener("click", () => {

@@ -38,6 +38,24 @@ export interface PinnedPage {
 }
 
 // ---------------------------------------------------------------------------
+// Annotations (persistent page highlights + sticky notes)
+// ---------------------------------------------------------------------------
+
+export interface AnnotationEntry {
+  id: string;          // nanoid
+  /** Normalized URL (no fragment, no trailing slash variation) */
+  url: string;
+  sessionId: string;
+  /** Text excerpt that was highlighted */
+  text: string;
+  /** CSS hex color, e.g. "#ffe08a" */
+  color: string;
+  /** User-written sticky note attached to this highlight */
+  note: string;
+  createdAt: string;   // ISO-8601
+}
+
+// ---------------------------------------------------------------------------
 // Research session
 // ---------------------------------------------------------------------------
 
@@ -106,9 +124,28 @@ export interface StatusMsg {
   pinnedCount: number;
 }
 
+export interface AnnotationRestoreMsg {
+  action: "restore_annotations";
+  annotations: AnnotationEntry[];
+}
+
+export interface AnnotationUpdateMsg {
+  action: "annotation_update";
+  id: string;
+  note: string;
+}
+
+export interface AnnotationRemoveMsg {
+  action: "annotation_remove";
+  id: string;
+}
+
 export type ExtMessage =
   | PageContextMsg
   | SelectionMsg
   | HighlightMsg
   | FillFormMsg
-  | StatusMsg;
+  | StatusMsg
+  | AnnotationRestoreMsg
+  | AnnotationUpdateMsg
+  | AnnotationRemoveMsg;

@@ -21,7 +21,8 @@ import { createLogger } from "@shared/logger";
 import { InboundEnvelope } from "@shared/protocol";
 import { MSG } from "@shared/constants";
 import { addPinnedPage } from "@shared/storage";
-import { PinnedPage } from "@shared/types";
+import { addAnnotation, normalizeUrl } from "@shared/annotations";
+import { PinnedPage, AnnotationEntry } from "@shared/types";
 import { nanoid } from "nanoid";
 
 import { WsClient } from "./WsClient";
@@ -57,6 +58,7 @@ export class ToolDispatcher {
           result = await this._highlightText(
             args.text as string,
             args.color as string | undefined,
+            sessionId,
           );
           break;
         case "fill_form":
@@ -119,10 +121,12 @@ export class ToolDispatcher {
     }
   }
 
-  /** Highlights a text passage in the active tab via the Annotator content script. */
+  /** Highlights a text passage in the active tab via the Annotator content script.
+   *  Also persists the annotation to storage so it reappears on the next visit. */
   private async _highlightText(
     text: string,
     color?: string,
+    sessionId?: string,
   ): Promise<{ ok: boolean }> {
     const tab = await this._getActiveTab();
     if (!tab?.id) return { ok: false };
@@ -132,6 +136,19 @@ export class ToolDispatcher {
         text,
         color,
       });
+      // Persist so the highlight is restored on future page visits
+      if (tab.url && text) {
+        const entry: AnnotationEntry = {
+          id: nanoid(),
+          url: normalizeUrl(tab.url),
+          sessionId: sessionId ?? this._sessionMgr.activeSessionId ?? "",
+          text,
+          color: color ?? "#ffe08a",
+          note: "",
+          createdAt: new Date().toISOString(),
+        };
+        await addAnnotation(entry);
+      }
       return { ok: true };
     } catch {
       return { ok: false };

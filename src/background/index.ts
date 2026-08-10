@@ -10,11 +10,13 @@
  * 5. Watch tab lifecycle (context refresh, eviction)
  * 6. Route messages between side panel ↔ server
  * 7. Dispatch browser-native agent tool calls (ToolDispatcher)
+ * 8. Restore persistent page annotations when a tab finishes loading
  */
 
 import { createLogger } from "@shared/logger";
 import { MSG, MAX_CONTEXT_CHARS, COMMANDS } from "@shared/constants";
 import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
+import { loadAnnotationsByUrl, updateAnnotationNote, removeAnnotation } from "@shared/annotations";
 import { PinnedPage } from "@shared/types";
 import { nanoid } from "nanoid";
 
@@ -24,6 +26,7 @@ import { ContextCache } from "./ContextCache";
 import { TabWatcher } from "./TabWatcher";
 import { ContextMenu } from "./ContextMenu";
 import { ToolDispatcher } from "./ToolDispatcher";
+import { openPanel } from "./PanelManager";
 
 const log = createLogger("bg");
 
@@ -89,6 +92,24 @@ async function init(): Promise<void> {
 init().catch((e) => log.error("init failed", e));
 
 // ---------------------------------------------------------------------------
+// Annotation restoration — run every time a tab finishes loading
+// ---------------------------------------------------------------------------
+
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status !== "complete" || !tab.url) return;
+  try {
+    const annotations = await loadAnnotationsByUrl(tab.url);
+    if (annotations.length === 0) return;
+    await chrome.tabs.sendMessage(tabId, {
+      action: MSG.RESTORE_ANNOTATIONS,
+      annotations,
+    });
+  } catch {
+    // Content script not yet ready or tab not injectable — safe to ignore
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Side panel port management
 // ---------------------------------------------------------------------------
 
@@ -150,7 +171,12 @@ async function handleSidePanelMsg(
         if (ctx) cache.set(contextTabId, ctx);
         tabIds.push(contextTabId);
       }
-      const context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
+      let context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
+      // Prepend user session notes if present so the agent has them in context
+      const notes = (msg.notes as string | undefined)?.trim();
+      if (notes) {
+        context = `[User notes]\n${notes}\n\n${context}`;
+      }
       client.send("chat.send", {
         content: msg.message as string,
         context: context || undefined,
@@ -243,7 +269,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return false;
   }
-  // Sync response required — return false (no async needed)
+  if (msg.action === MSG.ANNOTATION_UPDATE) {
+    updateAnnotationNote(msg.id as string, msg.note as string).catch(() => {});
+    return false;
+  }
+  if (msg.action === MSG.ANNOTATION_REMOVE) {
+    removeAnnotation(msg.id as string).catch(() => {});
+    return false;
+  }
+  if (msg.action === MSG.OPEN_PANEL) {
+    openPanel(msg.windowId as number | undefined).catch(() => {});
+    return false;
+  }
   return false;
 });
 
@@ -256,9 +293,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 
   switch (command) {
     case COMMANDS.TOGGLE_PANEL:
-      if (tab?.windowId != null) {
-        await chrome.sidePanel.open({ windowId: tab.windowId });
-      }
+      await openPanel(tab?.windowId ?? undefined);
       break;
 
     case COMMANDS.PIN_PAGE:
@@ -290,9 +325,7 @@ async function onContextMenuAction(
   const tabId = tab?.id;
   const windowId = tab?.windowId;
 
-  if (windowId != null) {
-    await chrome.sidePanel.open({ windowId });
-  }
+  await openPanel(windowId);
 
   if (action === "ask" && info.selectionText) {
     broadcastToSidePanel({ action: "ask_selection", text: info.selectionText, tabId });

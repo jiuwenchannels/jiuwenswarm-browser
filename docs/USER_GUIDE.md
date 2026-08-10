@@ -178,6 +178,49 @@ no separate button is needed.
 
 ---
 
+## Page Annotations
+
+### Persistent Highlights
+
+When the agent highlights a passage on a page (see [Agent Page Actions](#agent-page-actions)),
+that highlight is automatically saved. The next time you visit the same URL, the
+highlighted text reappears — even after a browser restart.
+
+Saved highlights use a distinct color with a solid outline to distinguish them from
+transient agent highlights that are cleared at the end of a turn.
+
+### Sticky Notes on Highlights
+
+Click any saved highlight on the page to open a note popover attached to it.
+
+- **Save** — stores a text note on the highlight. The note text appears as a tooltip.
+- **Delete** — removes the highlight and its note from storage permanently.
+
+Notes are local to your browser (stored in `chrome.storage.local`).
+
+---
+
+## Session Notes
+
+The side panel includes a lightweight freeform note editor for the active session.
+
+### Opening the Notes Panel
+
+Click the **📝** button in the context bar to toggle the notes panel open or closed.
+The panel appears below the context bar.
+
+### How Notes Work
+
+- Notes are auto-saved as you type (800 ms debounce). A **Saved ✓** indicator
+  confirms when the save completes.
+- Notes are stored per session in Chrome local storage and survive browser restarts.
+- When you switch sessions, the notes panel loads the saved note for the new session.
+- Every chat message you send includes your notes as context, prepended as
+  `[User notes]` before the page content. This lets the agent refer back to your
+  observations without you needing to repeat them.
+
+---
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -282,8 +325,12 @@ JiuwenSwarm server.
 
 ### Side panel does not open
 
-Chrome 114+ is required for the Side Panel API. Update Chrome if the panel
-command has no effect.
+Chrome 114+ is required for the Side Panel API. If you are on an older Chrome
+build, update Chrome.
+
+On Chromium-based browsers that do not implement the Side Panel API (360 Safe
+Browser, QQ Browser, Sogou Browser), the extension automatically opens the panel
+as a standalone popup window instead. All features work identically in this mode.
 
 ### Context is cut off
 

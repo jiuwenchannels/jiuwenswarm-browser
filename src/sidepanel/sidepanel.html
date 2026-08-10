@@ -122,6 +122,26 @@
     #nf-create-btn { background: var(--accent); color: #fff; }
     #nf-cancel-btn { background: var(--border); color: var(--text); }
 
+    /* ── Notes panel ── */
+    #notes-panel {
+      display: none; flex-direction: column; gap: 4px;
+      padding: 8px 10px; background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    #notes-panel.open { display: flex; }
+    #notes-input {
+      width: 100%; min-height: 80px; max-height: 200px; resize: vertical;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 8px; font-size: 12px; font-family: inherit; outline: none;
+    }
+    #notes-input:focus { border-color: var(--accent); }
+    #notes-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 11px; color: var(--text-dim);
+    }
+    #notes-saved { opacity: 0; transition: opacity .4s; }
+
     /* ── Context bar ── */
     #context-bar {
       display: flex; align-items: center; gap: 6px;
@@ -247,7 +267,17 @@
 
   <div id="context-bar">
     <button id="pin-btn">📌 Pin page</button>
+    <button id="notes-btn" class="icon-btn" title="Toggle session notes">📝</button>
     <div id="pin-chips"></div>
+  </div>
+
+  <!-- Session notes panel (hidden by default) -->
+  <div id="notes-panel">
+    <textarea id="notes-input" placeholder="Write notes about this session… They will be included as context when you send a message."></textarea>
+    <div id="notes-footer">
+      <span>Notes are sent as context with every message.</span>
+      <span id="notes-saved">Saved ✓</span>
+    </div>
   </div>
 
   <div id="chat-view">

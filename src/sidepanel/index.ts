@@ -13,6 +13,7 @@ import { MSG } from "@shared/constants";
 import { ChatBridge } from "./ChatBridge";
 import { SessionPicker } from "./SessionPicker";
 import { ContextBar } from "./ContextBar";
+import { NoteEditor } from "./NoteEditor";
 import {
   exportSessionJson,
   exportSessionMarkdown,
@@ -42,6 +43,12 @@ const chatMode        = document.getElementById("chat-mode") as HTMLSelectElemen
 // Header buttons
 const newSessionBtn   = document.getElementById("new-session-btn")!;
 const moreBtn         = document.getElementById("more-btn")!;
+
+// Notes panel
+const notesBtn        = document.getElementById("notes-btn")!;
+const notesPanel      = document.getElementById("notes-panel")!;
+const notesInput      = document.getElementById("notes-input") as HTMLTextAreaElement;
+const notesSaved      = document.getElementById("notes-saved")!;
 
 // Session actions menu (⋯)
 const sessionActionsMenu = document.getElementById("session-actions-menu")!;
@@ -94,6 +101,8 @@ const contextBar = new ContextBar(
   }
 );
 
+const noteEditor = new NoteEditor(notesInput, notesSaved);
+
 // ---------------------------------------------------------------------------
 // Background event bus
 // ---------------------------------------------------------------------------
@@ -139,6 +148,7 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       _activeSessionId = activeId;
       picker.update(_sessions, activeId);
       if (activeId) loadPinnedPages(activeId);
+      noteEditor.setSession(activeId).catch(() => {});
       break;
     }
 
@@ -148,6 +158,7 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       _activeSessionId = session.id;
       picker.update(_sessions, session.id);
       loadPinnedPages(session.id);
+      noteEditor.setSession(session.id).catch(() => {});
 
       // If a template was pending, inject its starting prompt now
       if (_pendingTemplateId) {
@@ -166,6 +177,7 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       const activeId = msg.activeId as string | null;
       _activeSessionId = activeId;
       if (activeId) loadPinnedPages(activeId);
+      noteEditor.setSession(activeId).catch(() => {});
       break;
     }
 
@@ -230,6 +242,14 @@ document.addEventListener("click", () => {
 // Stop clicks inside the menus from propagating to the document listener
 sessionPickerEl.addEventListener("click", (e) => e.stopPropagation());
 sessionActionsMenu.addEventListener("click", (e) => e.stopPropagation());
+
+// ---------------------------------------------------------------------------
+// Notes panel toggle
+// ---------------------------------------------------------------------------
+
+notesBtn.addEventListener("click", () => {
+  notesPanel.classList.toggle("open");
+});
 
 // ---------------------------------------------------------------------------
 // Session actions: export / import / open in web app
@@ -443,7 +463,7 @@ function sendMessage(): void {
   chatInput.disabled = true;
   chatSend.disabled = true;
   beginAssistantTurn();
-  bridge.sendChat(text, chatMode.value, _contextTabId ?? undefined);
+  bridge.sendChat(text, chatMode.value, _contextTabId ?? undefined, noteEditor.getNoteText() || undefined);
   _contextTabId = null;
 }
 

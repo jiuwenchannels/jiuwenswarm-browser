@@ -40,12 +40,13 @@ export class ChatBridge {
     this._send({ action: MSG.SET_SESSION, sessionId });
   }
 
-  sendChat(message: string, mode?: string, contextTabId?: number): void {
+  sendChat(message: string, mode?: string, contextTabId?: number, notes?: string): void {
     this._send({
       action: MSG.SEND_AGENT,
       message,
       mode,
       ...(contextTabId != null ? { tabId: contextTabId } : {}),
+      ...(notes ? { notes } : {}),
       sessionId: this._sessionId,
     });
   }
