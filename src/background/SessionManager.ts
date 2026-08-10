@@ -1,17 +1,12 @@
 /**
  * Manages research session lifecycle in the background service worker.
  *
- * The server is the single source of truth for the session list — the same
- * sessions are visible in the web app and the extension. The extension stores
- * only the active session pointer in chrome.storage.local.
- *
- * Session list lives in memory only; it is refreshed from the server on every
- * connect and after every create/delete. A cold SW restart triggers a refresh
- * automatically through the connect → init → refresh flow.
+ * Sessions are server-owned. The active-session pointer is stored locally; the
+ * session list is fetched from the server via `session.list` (same JSON-RPC
+ * protocol as the IDE plugin / web app).
  */
 
 import { createLogger } from "@shared/logger";
-import { makeEnvelope } from "@shared/protocol";
 import { loadActiveSessionId, saveActiveSessionId } from "@shared/storage";
 import { AgentMode, ResearchSession } from "@shared/types";
 import type { WsClient } from "./WsClient";
@@ -20,9 +15,9 @@ const log = createLogger("bg/sessions");
 
 type ServerSessionRow = {
   session_id: string;
-  title: string;
-  created_at: string;
-  mode: string;
+  title?: string;
+  created_at?: string;
+  mode?: string;
 };
 
 type ChangeListener = (sessions: ResearchSession[], activeId: string | null) => void;
@@ -48,8 +43,8 @@ export class SessionManager {
   }
 
   /**
-   * Load the active-session pointer from local storage, then request the
-   * session list from the server. Called once on SW startup (after connect).
+   * Load the active-session pointer from local storage. The session list is
+   * fetched separately via refresh() once the connection is established.
    */
   async init(): Promise<void> {
     this._activeSessionId = await loadActiveSessionId();
@@ -57,18 +52,85 @@ export class SessionManager {
     this._notify();
   }
 
-  /** Ask the server for the current session list. */
-  refresh(): void {
-    this._client.send(makeEnvelope("list_sessions", {}));
+  /** Ask the server for the current session list (session.list → res). */
+  async refresh(): Promise<void> {
+    try {
+      const payload = await this._client.request("session.list", { limit: 50 });
+      const rows = (payload.sessions as ServerSessionRow[]) || [];
+      this._sessions = rows
+        .filter((ss) => ss && typeof ss.session_id === "string")
+        .map((ss) => ({
+          id: ss.session_id,
+          title: ss.title || ss.session_id,
+          mode: (ss.mode as AgentMode) || "chat",
+          createdAt: ss.created_at || new Date().toISOString(),
+          updatedAt: ss.created_at || new Date().toISOString(),
+          pinnedPageIds: [],
+        }))
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      // Keep the active pointer even if the freshly-adopted connection session
+      // (from connection.ack) is not in the list yet — it is valid for chat and
+      // only becomes visible in session.list after it has content. Make sure it
+      // stays visible in the picker too.
+      if (this._activeSessionId && !this._sessions.find((s) => s.id === this._activeSessionId)) {
+        this._sessions.unshift({
+          id: this._activeSessionId,
+          title: this._activeSessionId,
+          mode: "chat",
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          pinnedPageIds: [],
+        });
+      }
+
+      log.info(`server sessions updated: ${this._sessions.length} sessions`);
+      this._notify();
+    } catch (e) {
+      log.error("session.list failed", e);
+    }
   }
 
-  /**
-   * Create a new session on the server. The session list updates when the
-   * server responds with a `sessions` or `session_created` envelope.
-   */
-  createSession(title: string, mode: AgentMode = "research"): void {
-    this._client.send(makeEnvelope("create_session", { title, mode }));
-    log.info("create_session sent", title, mode);
+  /** Create a new session on the server and activate it. */
+  async createSession(title: string, mode: AgentMode = "research"): Promise<void> {
+    try {
+      const payload = await this._client.request("session.create", {
+        title,
+        mode,
+        create_token: this._randomHex(16),
+      });
+      const sid = payload.session_id as string | undefined;
+      if (!sid) {
+        log.warn("session.create returned no session_id");
+        return;
+      }
+      this._activeSessionId = sid;
+      await saveActiveSessionId(sid);
+      // Refresh the list so the new session shows up in the picker.
+      await this.refresh();
+      this._notify();
+    } catch (e) {
+      log.error("session.create failed", e);
+    }
+  }
+
+  /** Adopt the connection's auto-created session (from connection.ack). */
+  setSessionFromAck(sessionId: string, mode?: string): void {
+    if (!sessionId) return;
+    const existing = this._sessions.find((s) => s.id === sessionId);
+    if (!existing) {
+      this._sessions.unshift({
+        id: sessionId,
+        title: sessionId,
+        mode: (mode as AgentMode) || "chat",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        pinnedPageIds: [],
+      });
+    }
+    this._activeSessionId = sessionId;
+    void saveActiveSessionId(sessionId);
+    this._notify();
   }
 
   async setActiveSession(id: string): Promise<void> {
@@ -76,63 +138,21 @@ export class SessionManager {
       log.warn("setActiveSession: unknown id", id);
       return;
     }
+    await this._client.request("session.switch", { session_id: id }).catch(() => {});
     this._activeSessionId = id;
     await saveActiveSessionId(id);
-    this._notify();
-  }
-
-  /**
-   * Replace the in-memory session list with the authoritative server list.
-   * Called whenever a `sessions` envelope arrives.
-   */
-  handleServerSessions(serverSessions: ServerSessionRow[]): void {
-    this._sessions = serverSessions
-      .map((ss) => ({
-        id: ss.session_id,
-        title: ss.title,
-        mode: ss.mode as AgentMode,
-        createdAt: ss.created_at,
-        updatedAt: ss.created_at,
-        pinnedPageIds: [],
-      }))
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-    // If the active pointer no longer exists on the server, clear it
-    if (
-      this._activeSessionId &&
-      !this._sessions.find((s) => s.id === this._activeSessionId)
-    ) {
-      log.warn("active session no longer on server, clearing pointer");
-      this._activeSessionId = null;
-      saveActiveSessionId(null).catch(() => {});
-    }
-
-    log.info(`server sessions updated: ${this._sessions.length} sessions`);
-    this._notify();
-  }
-
-  /**
-   * Handle a `session_created` envelope — add the new session and activate it.
-   */
-  handleSessionCreated(row: ServerSessionRow): void {
-    const session: ResearchSession = {
-      id: row.session_id,
-      title: row.title,
-      mode: row.mode as AgentMode,
-      createdAt: row.created_at,
-      updatedAt: row.created_at,
-      pinnedPageIds: [],
-    };
-    this._sessions = [session, ...this._sessions];
-    this._activeSessionId = session.id;
-    saveActiveSessionId(session.id).catch(() => {});
-    log.info("session created and activated", session.id, session.title);
     this._notify();
   }
 
   onChange(listener: ChangeListener): () => void {
     this._listeners.add(listener);
     return () => this._listeners.delete(listener);
+  }
+
+  private _randomHex(bytes: number): string {
+    const buf = new Uint8Array(bytes);
+    crypto.getRandomValues(buf);
+    return Array.from(buf, (b) => b.toString(16).padStart(2, "0")).join("");
   }
 
   private _notify(): void {

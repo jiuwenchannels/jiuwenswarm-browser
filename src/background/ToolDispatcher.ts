@@ -18,7 +18,7 @@
  */
 
 import { createLogger } from "@shared/logger";
-import { makeEnvelope, ToolCallPayload } from "@shared/protocol";
+import { InboundEnvelope } from "@shared/protocol";
 import { MSG } from "@shared/constants";
 import { addPinnedPage } from "@shared/storage";
 import { PinnedPage } from "@shared/types";
@@ -39,8 +39,12 @@ export class ToolDispatcher {
     private readonly _sessionMgr: SessionManager,
   ) {}
 
-  async dispatch(payload: ToolCallPayload, sessionId?: string): Promise<void> {
-    const { tool, args, call_id } = payload;
+  async dispatch(envelope: InboundEnvelope, sessionId?: string): Promise<void> {
+    const { tool, args, call_id } = envelope.payload as {
+      tool: string;
+      args: Record<string, unknown>;
+      call_id: string;
+    };
     log.debug("tool_call", tool, call_id);
 
     let result: unknown;
@@ -84,9 +88,11 @@ export class ToolDispatcher {
       result = { error: String(e) };
     }
 
-    this._client.send(
-      makeEnvelope("tool_result", { call_id, result }, sessionId),
-    );
+    this._client.send("chat.tool_result", {
+      call_id,
+      result,
+      ...(sessionId ? { session_id: sessionId } : {}),
+    });
     log.debug("tool_result sent", tool, call_id);
   }
 

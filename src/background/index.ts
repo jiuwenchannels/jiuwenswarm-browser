@@ -2,8 +2,9 @@
  * JiuwenSwarm background service worker — entry point.
  *
  * Responsibilities:
- * 1. Maintain WebSocket connection to local JiuwenSwarm server
- * 2. Manage research sessions (create, list, persist)
+ * 1. Maintain WebSocket connection to local JiuwenSwarm server (gateway
+ *    JSON-RPC protocol, channel_id "browser")
+ * 2. Manage research sessions (list, create, switch)
  * 3. Cache page context from content scripts
  * 4. Handle right-click context menus
  * 5. Watch tab lifecycle (context refresh, eviction)
@@ -13,7 +14,6 @@
 
 import { createLogger } from "@shared/logger";
 import { MSG, MAX_CONTEXT_CHARS, COMMANDS } from "@shared/constants";
-import { makeEnvelope } from "@shared/protocol";
 import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
 import { PinnedPage } from "@shared/types";
 import { nanoid } from "nanoid";
@@ -28,7 +28,7 @@ import { ToolDispatcher } from "./ToolDispatcher";
 const log = createLogger("bg");
 
 // ---------------------------------------------------------------------------
-// Singletons (survive SW restart via closure — NOT across cold starts)
+// Singletons
 // ---------------------------------------------------------------------------
 
 const client = new WsClient();
@@ -38,14 +38,20 @@ const tabWatcher = new TabWatcher(cache);
 const contextMenu = new ContextMenu(onContextMenuAction);
 const toolDispatcher = new ToolDispatcher(client, cache, tabWatcher, sessionMgr);
 
-// Push connection state to the side panel so the chat iframe can
-// enable/disable its input live (not just on an explicit status query).
+// Push connection state to the side panel so the chat can enable/disable its
+// input live.
 client.onStatusChange((connected) => {
   broadcastToSidePanel({
     action: MSG.STATUS,
     connected,
     activeSessionId: sessionMgr.activeSessionId,
   });
+});
+
+// Whenever the session list / active pointer changes, keep the side panel's
+// picker and header in sync.
+sessionMgr.onChange((sessions, activeId) => {
+  broadcastToSidePanel({ action: "sessions", sessions, activeId });
 });
 
 // ---------------------------------------------------------------------------
@@ -59,32 +65,23 @@ async function init(): Promise<void> {
   contextMenu.setup();
   await client.connect();
   client.onEvent((env) => {
-    if (env.type === "sessions") {
-      const p = env.payload as { sessions: Array<{ session_id: string; title: string; created_at: string; mode: string }> };
-      sessionMgr.handleServerSessions(p.sessions ?? []);
-    }
-    if (env.type === "session_created") {
-      const p = env.payload as { session_id: string; title: string; created_at: string; mode: string };
-      sessionMgr.handleSessionCreated(p);
-      // Broadcast updated session list to side panel
-      broadcastToSidePanel({
-        action: "sessions",
-        sessions: sessionMgr.sessions,
-        activeId: sessionMgr.activeSessionId,
-      });
+    if (env.type === "ack") {
+      // The server auto-creates a session per connection — adopt it and pull
+      // the full session list.
+      const sid = env.payload.session_id as string | undefined;
+      if (sid) sessionMgr.setSessionFromAck(sid, env.payload.mode as string | undefined);
+      sessionMgr.refresh().catch(() => {});
+      return;
     }
     if (env.type === "tool_call") {
-      // Dispatch browser-native tool; do not forward to side panel
-      const p = env.payload as import("@shared/protocol").ToolCallPayload;
-      toolDispatcher.dispatch(p, env.session_id).catch((e) =>
+      toolDispatcher.dispatch(env, env.session_id).catch((e) =>
         log.error("tool dispatch error", e),
       );
       return;
     }
-    // Forward all other events to side panel ports
+    // Stream / status envelopes flow straight through to the side panel.
     broadcastToSidePanel(env);
   });
-  sessionMgr.refresh();
   log.info("init complete");
 }
 
@@ -142,13 +139,12 @@ async function handleSidePanelMsg(
       const pinnedPages = await getPinnedPagesBySession(sessionId);
       const tabIds = pinnedPages.map((p) => p.tabId);
       const context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
-      client.send(
-        makeEnvelope(
-          "chat",
-          { message: msg.message, context: context || undefined, mode: sessionMgr.activeSession?.mode },
-          sessionId
-        )
-      );
+      client.send("chat.send", {
+        content: msg.message as string,
+        context: context || undefined,
+        mode: (msg.mode as string) || sessionMgr.activeSession?.mode || "chat",
+        session_id: sessionId,
+      });
       break;
     }
 
@@ -193,8 +189,6 @@ async function handleSidePanelMsg(
       break;
 
     case MSG.NEW_SESSION: {
-      // Fire-and-forget — server responds with session_created envelope which
-      // triggers handleSessionCreated() and broadcasts updated sessions to panel
       sessionMgr.createSession(
         (msg.title as string) || "New session",
         (msg.mode as "research" | "chat" | "summarize" | "compare") || "research"

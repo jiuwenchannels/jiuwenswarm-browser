@@ -1668,7 +1668,14 @@ function send(msg) {
     // JupyterLab: bridge installed by ChatPanel.ts on iframe.contentWindow
     window.__jupyter_send(JSON.stringify(msg));
   } else {
-    console.warn('[webview] no bridge available, msg:', msg);
+    // Browser-extension host: the shared webview runs in a sandboxed iframe
+    // (opaque origin), so a bridge cannot be installed on this window — post
+    // the message up to the host page instead.
+    try {
+      window.parent.postMessage(msg, '*');
+    } catch (e) {
+      console.warn('[webview] no bridge available, msg:', msg);
+    }
   }
 }
 

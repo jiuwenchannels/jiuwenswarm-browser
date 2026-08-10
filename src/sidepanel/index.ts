@@ -32,7 +32,12 @@ const sessionLabel    = document.getElementById("session-label")!;
 const sessionPickerEl = document.getElementById("session-picker")!;
 const pinBtn          = document.getElementById("pin-btn")!;
 const pinChipsEl      = document.getElementById("pin-chips")!;
-const chatFrame       = document.getElementById("chat-frame") as HTMLIFrameElement;
+const chatMessages    = document.getElementById("chat-messages")!;
+const chatEmpty       = document.getElementById("chat-empty")!;
+const chatEmptySub    = document.getElementById("chat-empty-sub")!;
+const chatInput       = document.getElementById("chat-input") as HTMLTextAreaElement;
+const chatSend        = document.getElementById("chat-send") as HTMLButtonElement;
+const chatMode        = document.getElementById("chat-mode") as HTMLSelectElement;
 
 // Header buttons
 const newSessionBtn   = document.getElementById("new-session-btn")!;
@@ -70,7 +75,7 @@ let _pendingTemplateId: string | null = null;
 // Components
 // ---------------------------------------------------------------------------
 
-const bridge = new ChatBridge(chatFrame);
+const bridge = new ChatBridge();
 
 const picker = new SessionPicker(sessionPickerEl, sessionLabel, (id) => {
   _activeSessionId = id;
@@ -99,11 +104,32 @@ window.addEventListener("jiuwen:bg", (ev: Event) => {
 });
 
 function handleBgMsg(msg: Record<string, unknown>): void {
-  const action = msg.action as string;
+  // Background replies use msg.action ("status"/"sessions"), while raw server
+  // envelopes use msg.type ("token"/"done"/"error") — accept either.
+  const action = (msg.action ?? msg.type) as string;
 
   switch (action) {
     case MSG.STATUS: {
-      statusDot.classList.toggle("connected", msg.connected as boolean);
+      setConnected(msg.connected as boolean);
+      break;
+    }
+
+    case "token": {
+      const text = ((msg.payload as { text?: string }) ?? {}).text;
+      if (text) appendStreamText(text);
+      break;
+    }
+
+    case "done": {
+      const text = ((msg.payload as { text?: string }) ?? {}).text;
+      endTurn(text);
+      break;
+    }
+
+    case "error": {
+      const message = ((msg.payload as { message?: string }) ?? {}).message ?? "Unknown error";
+      endTurn();
+      renderError(message);
       break;
     }
 
@@ -128,10 +154,9 @@ function handleBgMsg(msg: Record<string, unknown>): void {
         const tpl = getTemplate(_pendingTemplateId);
         _pendingTemplateId = null;
         if (tpl?.startingPrompt) {
-          chatFrame.contentWindow?.postMessage(
-            { type: "prefill", text: tpl.startingPrompt },
-            "*"
-          );
+          chatInput.value = tpl.startingPrompt;
+          chatInput.dispatchEvent(new Event("input"));
+          chatInput.focus();
         }
       }
       break;
@@ -154,17 +179,15 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       break;
 
     case "ask_selection":
-      chatFrame.contentWindow?.postMessage(
-        { type: "prefill", text: `> "${msg.text}"\n\n` },
-        "*"
-      );
+      chatInput.value = `> "${msg.text}"\n\n`;
+      chatInput.dispatchEvent(new Event("input"));
+      chatInput.focus();
       break;
 
     case "summarize_tab":
-      chatFrame.contentWindow?.postMessage(
-        { type: "prefill", text: "Please summarize this page." },
-        "*"
-      );
+      chatInput.value = "Please summarize this page.";
+      chatInput.dispatchEvent(new Event("input"));
+      chatInput.focus();
       break;
   }
 }
@@ -345,6 +368,92 @@ async function loadPinnedPages(sessionId: string): Promise<void> {
   const pages = await getPinnedPagesBySession(sessionId);
   contextBar.update(pages);
 }
+
+// ---------------------------------------------------------------------------
+// Native chat rendering
+// ---------------------------------------------------------------------------
+
+let _connected = false;
+let _streaming = false;
+let _assistantEl: HTMLDivElement | null = null;
+
+function setConnected(connected: boolean): void {
+  _connected = connected;
+  statusDot.classList.toggle("connected", connected);
+  chatEmptySub.textContent = connected ? "Ready to chat" : "Waiting for server…";
+  chatInput.disabled = !connected || _streaming;
+  chatSend.disabled = !connected || _streaming || !chatInput.value.trim();
+}
+
+function renderUserMessage(text: string): void {
+  chatEmpty.style.display = "none";
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.textContent = text;
+  chatMessages.appendChild(el);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function beginAssistantTurn(): void {
+  chatEmpty.style.display = "none";
+  _assistantEl = document.createElement("div");
+  _assistantEl.className = "msg assistant";
+  chatMessages.appendChild(_assistantEl);
+}
+
+function appendStreamText(text: string): void {
+  if (!_assistantEl) beginAssistantTurn();
+  if (_assistantEl) {
+    _assistantEl.textContent += text;
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+}
+
+function endTurn(finalText?: string): void {
+  if (_assistantEl) {
+    if (finalText) _assistantEl.textContent = finalText;
+    _assistantEl = null;
+  }
+  _streaming = false;
+  chatInput.disabled = !_connected;
+  chatSend.disabled = !_connected || !chatInput.value.trim();
+  chatInput.focus();
+}
+
+function renderError(message: string): void {
+  chatEmpty.style.display = "none";
+  const el = document.createElement("div");
+  el.className = "msg error";
+  el.textContent = message;
+  chatMessages.appendChild(el);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function sendMessage(): void {
+  const text = chatInput.value.trim();
+  if (!text || !_connected || _streaming) return;
+  renderUserMessage(text);
+  chatInput.value = "";
+  chatInput.style.height = "auto";
+  _streaming = true;
+  chatInput.disabled = true;
+  chatSend.disabled = true;
+  beginAssistantTurn();
+  bridge.sendChat(text, chatMode.value);
+}
+
+chatSend.addEventListener("click", sendMessage);
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+chatInput.addEventListener("input", () => {
+  chatInput.style.height = "auto";
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 120) + "px";
+  chatSend.disabled = !_connected || _streaming || !chatInput.value.trim();
+});
 
 // ---------------------------------------------------------------------------
 // Start

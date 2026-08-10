@@ -1,8 +1,10 @@
 /**
- * E2A WebSocket envelope protocol — browser channel.
+ * WebSocket protocol — mirrors the gateway JSON-RPC wire format used by the
+ * IDE plugin (jiuwenswarm-ide) and the web app: requests are
+ * `{type:"req", id, channel_id, method, params}`, the server answers with
+ * `{type:"res", id, ok, payload}` and pushes `{type:"event", event, payload}`.
  *
- * Mirrors the same wire format used by jiuwenswarm-ide and jiuwenswarm-jupyterlab
- * so the server-side agent router requires no changes.
+ * The browser channel uses channel_id "browser".
  */
 
 import { CHANNEL_ID } from "./constants";
@@ -11,41 +13,53 @@ import { CHANNEL_ID } from "./constants";
 // Outbound (browser → server)
 // ---------------------------------------------------------------------------
 
-export type OutboundMsgType =
-  | "chat"
-  | "create_session"
-  | "list_sessions"
-  | "delete_session"
-  | "set_mode"
-  | "tool_result"
-  | "ping";
-
-export interface OutboundEnvelope {
-  type: OutboundMsgType;
-  channel_id: typeof CHANNEL_ID;
-  session_id?: string;
-  payload: Record<string, unknown>;
+export interface WsRequest {
+  id: string;
+  type: "req";
+  channel_id: string;
+  method: string;
+  params: Record<string, unknown>;
+  timestamp?: number;
 }
 
-// Chat message sent to agent
-export interface ChatPayload {
-  message: string;
-  /** Aggregated page context injected as assistant context */
-  context?: string;
+/** Fire-and-forget chat message; streaming arrives back as events. */
+export interface ChatParams {
+  content: string;
+  session_id: string;
   mode?: string;
+  context?: string;
 }
 
-// Create a new agent session
-export interface CreateSessionPayload {
-  title: string;
-  mode: string;
+export interface ToolResultParams {
+  call_id: string;
+  result: unknown;
+  session_id?: string;
+}
+
+export function makeRequest(
+  method: string,
+  params: Record<string, unknown> = {}
+): WsRequest {
+  return {
+    id: (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2)),
+    type: "req",
+    channel_id: CHANNEL_ID,
+    method,
+    params,
+    timestamp: Date.now() / 1000,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Inbound (server → browser)
+// Inbound (server → extension UI)
+//
+// These are the shapes the background re-emits to the popup / side panel after
+// translating the gateway's `event` frames. The UI treats them as opaque and
+// keys off `type` (or `action` for background replies).
 // ---------------------------------------------------------------------------
 
 export type InboundMsgType =
+  | "ack"
   | "token"
   | "done"
   | "error"
@@ -60,13 +74,18 @@ export interface InboundEnvelope {
   payload: Record<string, unknown>;
 }
 
+export interface ConnectionAckPayload {
+  session_id?: string;
+  mode?: string;
+  tools?: unknown[];
+}
+
 export interface TokenPayload {
   text: string;
 }
 
 export interface DonePayload {
   text: string;
-  usage?: { input_tokens: number; output_tokens: number };
 }
 
 export interface ErrorPayload {
@@ -85,32 +104,8 @@ export interface SessionsPayload {
   sessions: SessionInfo[];
 }
 
-export interface SessionCreatedPayload extends SessionInfo {}
-
 export interface ToolCallPayload {
   tool: string;
   args: Record<string, unknown>;
   call_id: string;
-}
-
-export interface ToolResultPayload {
-  call_id: string;
-  result: unknown;
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-export function makeEnvelope(
-  type: OutboundMsgType,
-  payload: Record<string, unknown>,
-  sessionId?: string
-): OutboundEnvelope {
-  return {
-    type,
-    channel_id: CHANNEL_ID,
-    ...(sessionId ? { session_id: sessionId } : {}),
-    payload,
-  };
 }

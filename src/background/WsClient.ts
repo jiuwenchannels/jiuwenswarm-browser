@@ -1,13 +1,16 @@
 /**
  * WebSocket client for the JiuwenSwarm background service worker.
  *
- * Maintains a single persistent WebSocket connection to the local server.
+ * Speaks the gateway JSON-RPC protocol (same as jiuwenswarm-ide): outbound
+ * `{type:"req", id, channel_id, method, params}`, inbound `res` frames resolve
+ * pending requests and `event` frames are translated into InboundEnvelope
+ * objects and dispatched to registered handlers.
+ *
  * Reconnects automatically with exponential back-off on unexpected close.
- * All inbound envelopes are dispatched to registered handlers.
  */
 
 import { createLogger } from "@shared/logger";
-import { InboundEnvelope, OutboundEnvelope } from "@shared/protocol";
+import { InboundEnvelope } from "@shared/protocol";
 import { loadSettings } from "@shared/storage";
 import { WS_URL } from "@shared/constants";
 
@@ -18,9 +21,18 @@ const log = createLogger("bg/ws");
 
 const BACKOFF_MS = [1_000, 2_000, 5_000, 10_000, 30_000];
 
+type PendingRequest = {
+  resolve: (payload: Record<string, unknown>) => void;
+  reject: (err: Error) => void;
+  timer: number;
+};
+
+const REQUEST_TIMEOUT_MS = 15_000;
+
 export class WsClient {
   private _ws: WebSocket | null = null;
   private _handlers: Set<EventHandler> = new Set();
+  private _pending = new Map<string, PendingRequest>();
   private _retryCount = 0;
   private _intentionalClose = false;
   private _onStatusChange: StatusChangeHandler | null = null;
@@ -48,17 +60,55 @@ export class WsClient {
     this._ws = null;
   }
 
-  send(envelope: OutboundEnvelope): void {
+  /**
+   * Send a request and await its `res` frame.
+   */
+  request(method: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+    return new Promise((resolve, reject) => {
+      if (!this.isConnected || !this._ws) {
+        reject(new Error("WebSocket not connected"));
+        return;
+      }
+      const id = this._nextId();
+      const timer = setTimeout(() => {
+        this._pending.delete(id);
+        reject(new Error(`Request '${method}' timed out`));
+      }, REQUEST_TIMEOUT_MS);
+      this._pending.set(id, { resolve, reject, timer });
+      this._ws.send(
+        JSON.stringify({ id, type: "req", channel_id: "browser", method, params, timestamp: Date.now() / 1000 })
+      );
+    });
+  }
+
+  /**
+   * Fire-and-forget request (no `res` is expected) — used for chat.send.
+   * Returns the generated request id so the caller can correlate streaming
+   * events if needed.
+   */
+  send(method: string, params: Record<string, unknown> = {}): string | null {
     if (!this.isConnected || !this._ws) {
-      log.warn("send() called while disconnected — dropping", envelope.type);
-      return;
+      log.warn("send() called while disconnected — dropping", method);
+      return null;
     }
-    this._ws.send(JSON.stringify(envelope));
+    const id = this._nextId();
+    this._ws.send(
+      JSON.stringify({ id, type: "req", channel_id: "browser", method, params, timestamp: Date.now() / 1000 })
+    );
+    return id;
   }
 
   onEvent(handler: EventHandler): () => void {
     this._handlers.add(handler);
     return () => this._handlers.delete(handler);
+  }
+
+  // -------------------------------------------------------------------------
+  // Internals
+  // -------------------------------------------------------------------------
+
+  private _nextId(): string {
+    return (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
   }
 
   private _open(url: string): void {
@@ -73,20 +123,7 @@ export class WsClient {
     };
 
     ws.onmessage = (ev: MessageEvent) => {
-      let envelope: InboundEnvelope;
-      try {
-        envelope = JSON.parse(ev.data as string) as InboundEnvelope;
-      } catch (e) {
-        log.warn("could not parse inbound message", e);
-        return;
-      }
-      for (const h of this._handlers) {
-        try {
-          h(envelope);
-        } catch (e) {
-          log.error("handler threw", e);
-        }
-      }
+      this._handleMessage(ev.data as string);
     };
 
     ws.onerror = (ev) => {
@@ -96,6 +133,12 @@ export class WsClient {
     ws.onclose = () => {
       this._ws = null;
       this._onStatusChange?.(false);
+      // Fail any in-flight requests
+      for (const { reject, timer } of this._pending.values()) {
+        clearTimeout(timer);
+        reject(new Error("WebSocket closed"));
+      }
+      this._pending.clear();
       if (this._intentionalClose) {
         log.info("disconnected (intentional)");
         return;
@@ -105,5 +148,83 @@ export class WsClient {
       this._retryCount++;
       setTimeout(() => this._open(url), delay);
     };
+  }
+
+  private _handleMessage(raw: string): void {
+    let msg: Record<string, unknown>;
+    try {
+      msg = JSON.parse(raw) as Record<string, unknown>;
+    } catch {
+      log.warn("could not parse inbound message");
+      return;
+    }
+
+    if (msg.type === "res") {
+      const id = msg.id as string;
+      const pending = id ? this._pending.get(id) : undefined;
+      if (!pending) return;
+      clearTimeout(pending.timer);
+      this._pending.delete(id);
+      if (msg.ok) {
+        pending.resolve((msg.payload as Record<string, unknown>) || {});
+      } else {
+        const err = ((msg.payload as Record<string, unknown>)?.error as string) || (msg.error as string) || "Request failed";
+        pending.reject(new Error(err));
+      }
+      return;
+    }
+
+    if (msg.type === "event") {
+      const eventName = msg.event as string;
+      const payload = (msg.payload as Record<string, unknown>) || {};
+      const sessionId = (payload.session_id as string) || (msg.session_id as string) || undefined;
+      const envelope = this._translateEvent(eventName, payload, sessionId);
+      if (envelope) {
+        for (const h of this._handlers) {
+          try {
+            h(envelope);
+          } catch (e) {
+            log.error("handler threw", e);
+          }
+        }
+      }
+    }
+  }
+
+  private _translateEvent(
+    name: string,
+    payload: Record<string, unknown>,
+    sessionId?: string
+  ): InboundEnvelope | null {
+    const withSession = (type: InboundEnvelope["type"], p: Record<string, unknown>): InboundEnvelope =>
+      sessionId ? { type, session_id: sessionId, payload: p } : { type, payload: p };
+
+    switch (name) {
+      case "connection.ack":
+        return withSession("ack", payload);
+      case "chat.delta":
+        return withSession("token", { text: payload.text ?? payload.content ?? "" });
+      case "chat.final":
+        return withSession("done", { text: payload.content ?? payload.text ?? "" });
+      case "chat.error":
+        return withSession("error", {
+          message: (payload.message as string) || (payload.error as string) || "Unknown error",
+          code: (payload.code as string) || "",
+        });
+      case "chat.tool_call": {
+        const tc = (payload.tool_call as Record<string, unknown>) || {};
+        return withSession("tool_call", {
+          tool: (tc.name as string) || "",
+          args: (tc.arguments as Record<string, unknown>) || {},
+          call_id: (tc.id as string) || (payload.request_id as string) || "",
+        });
+      }
+      case "pong":
+        return withSession("pong", payload);
+      default:
+        // Other events (chat.reasoning, chat.tool_update, history.*, team.* …)
+        // are not consumed by the extension UI yet.
+        return null;
+    }
   }
 }
