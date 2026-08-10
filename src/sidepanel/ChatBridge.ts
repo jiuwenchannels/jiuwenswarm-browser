@@ -1,13 +1,16 @@
 /**
  * Bridge between the background service worker port and the chat iframe.
  *
- * Translates inbound server envelopes into the window.postMessage API
- * that chat.html (shared-webview) expects, and forwards messages from
- * the iframe back to background via the port.
+ * The shared-webview chat.html (used by VS Code / JetBrains / JupyterLab) only
+ * sends messages up when one of its host bridges is installed on the iframe's
+ * contentWindow — vscodeApi, window.__jb_send, or window.__jupyter_send.  This
+ * bridge installs window.__jupyter_send so the webview can talk to us, pushes
+ * connection status down (connected / disconnected), and translates between the
+ * extension's E2A WebSocket envelopes (token / done / error / sessions) and the
+ * webview's jiuwen_event protocol.
  */
 
 import { createLogger } from "@shared/logger";
-import { InboundEnvelope, OutboundMsgType } from "@shared/protocol";
 import { MSG } from "@shared/constants";
 
 const log = createLogger("sidepanel/bridge");
@@ -16,6 +19,8 @@ export class ChatBridge {
   private _port: chrome.runtime.Port | null = null;
   private _iframe: HTMLIFrameElement;
   private _sessionId: string | null = null;
+  /** requestId handed to us by the webview for the in-flight send */
+  private _requestId: string | null = null;
 
   constructor(iframe: HTMLIFrameElement) {
     this._iframe = iframe;
@@ -33,11 +38,14 @@ export class ChatBridge {
       this._port = null;
     });
 
-    // Listen for messages from the chat iframe
+    // Listen for messages the iframe posts up directly (postMessage path)
     window.addEventListener("message", (ev) => {
       if (ev.source !== this._iframe.contentWindow) return;
       this._onIframeMessage(ev.data as Record<string, unknown>);
     });
+
+    // Install the __jupyter_send bridge once the shared webview has loaded
+    this._iframe.addEventListener("load", () => this._installBridge());
 
     log.info("bridge connected");
 
@@ -90,13 +98,105 @@ export class ChatBridge {
     }
   }
 
+  private _installBridge(): void {
+    const win = this._iframe.contentWindow;
+    if (!win) return;
+
+    // chat.html's send() picks up window.__jupyter_send when present.
+    const bridgeWindow = win as unknown as { __jupyter_send?: (jsonStr: string) => void };
+    if (!bridgeWindow.__jupyter_send) {
+      bridgeWindow.__jupyter_send = (jsonStr: string) => {
+        try {
+          this._onIframeMessage(JSON.parse(jsonStr));
+        } catch (e) {
+          log.warn("could not parse iframe message", e);
+        }
+      };
+    }
+
+    log.info("bridge installed on chat iframe");
+    // Re-request state so the webview gets connected/session data after load.
+    this._send({ action: MSG.GET_STATUS });
+    this._send({ action: MSG.LIST_SESSIONS });
+  }
+
   private _onBgMessage(msg: Record<string, unknown>): void {
     const action = msg.action ?? msg.type;
 
-    // Forward agent stream events to iframe
-    if (action === "token" || action === "done" || action === "error") {
-      this._toIframe(msg as InboundEnvelope);
+    // Connection status -> enable/disable the webview input
+    if (action === MSG.STATUS) {
+      if (msg.connected) {
+        this._toIframe({
+          type: "connected",
+          sessionId: (msg.activeSessionId as string) || null,
+          sessionTitle: null,
+          models: [],
+          activeModel: null,
+        });
+      } else {
+        this._toIframe({ type: "disconnected" });
+      }
       return;
+    }
+
+    // Server stream envelopes -> webview jiuwen_event protocol
+    if (action === "token") {
+      const payload = (msg.payload as { text?: string }) ?? {};
+      if (payload.text) {
+        this._toIframe({
+          type: "jiuwen_event",
+          event: {
+            event_type: "chat.delta",
+            request_id: this._requestId,
+            payload: { text: payload.text },
+          },
+        });
+      }
+      return;
+    }
+    if (action === "done") {
+      const payload = (msg.payload as { text?: string }) ?? {};
+      this._toIframe({
+        type: "jiuwen_event",
+        event: {
+          event_type: "chat.final",
+          request_id: this._requestId,
+          payload: { content: payload.text ?? "" },
+        },
+      });
+      this._requestId = null;
+      return;
+    }
+    if (action === "error") {
+      const payload = (msg.payload as { message?: string }) ?? {};
+      this._toIframe({
+        type: "jiuwen_event",
+        event: {
+          event_type: "chat.error",
+          request_id: this._requestId,
+          payload: { error: payload.message ?? "Unknown error" },
+        },
+      });
+      this._requestId = null;
+      return;
+    }
+
+    // A freshly created session becomes active — point the webview at it
+    if (action === "session_created") {
+      const payload = (msg.payload as { session_id?: string }) ?? {};
+      this._sessionId = payload.session_id ?? null;
+      this._toIframe({
+        type: "connected",
+        sessionId: this._sessionId,
+        sessionTitle: null,
+        models: [],
+        activeModel: null,
+      });
+    }
+
+    // Session list also feeds the webview's own session picker
+    if (action === "sessions") {
+      this._toIframe({ type: "sessions", sessions: msg.sessions ?? [] });
     }
 
     // Emit custom events for the side panel UI to handle
@@ -104,10 +204,29 @@ export class ChatBridge {
   }
 
   private _onIframeMessage(msg: Record<string, unknown>): void {
-    // The shared chat iframe emits { type: 'send', text: '...' }
-    if (msg.type === "send" && typeof msg.text === "string") {
-      this.sendChat(msg.text);
+    const type = msg.type as string;
+
+    if (type === "send") {
+      this._requestId = (msg.requestId as string) || null;
+      const content =
+        typeof msg.content === "string" ? msg.content : typeof msg.text === "string" ? msg.text : "";
+      if (content) this.sendChat(content);
+      return;
     }
+    if (type === "list_sessions") {
+      this._send({ action: MSG.LIST_SESSIONS });
+      return;
+    }
+    if (type === "switch_session") {
+      this.setActiveSession(msg.sessionId as string);
+      return;
+    }
+    if (type === "new_session") {
+      this.createSession("New session", "research");
+      return;
+    }
+    // Other webview host requests (skills, rewind, git, files, …) are not
+    // supported by the browser channel — ignore them silently.
   }
 
   private _toIframe(envelope: Record<string, unknown>): void {

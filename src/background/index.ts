@@ -38,6 +38,16 @@ const tabWatcher = new TabWatcher(cache);
 const contextMenu = new ContextMenu(onContextMenuAction);
 const toolDispatcher = new ToolDispatcher(client, cache, tabWatcher, sessionMgr);
 
+// Push connection state to the side panel so the chat iframe can
+// enable/disable its input live (not just on an explicit status query).
+client.onStatusChange((connected) => {
+  broadcastToSidePanel({
+    action: MSG.STATUS,
+    connected,
+    activeSessionId: sessionMgr.activeSessionId,
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
@@ -215,7 +225,7 @@ async function handleSidePanelMsg(
 // ---------------------------------------------------------------------------
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.action === MSG.PAGE_CONTENT && sender.tab?.id != null) {
+  if (msg.action === MSG.PAGE_CONTEXT && sender.tab?.id != null) {
     cache.set(sender.tab.id, msg.context);
     sendResponse({ ok: true });
     return false;

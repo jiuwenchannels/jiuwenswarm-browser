@@ -12,6 +12,7 @@ import { loadSettings } from "@shared/storage";
 import { WS_URL } from "@shared/constants";
 
 export type EventHandler = (envelope: InboundEnvelope) => void;
+export type StatusChangeHandler = (connected: boolean) => void;
 
 const log = createLogger("bg/ws");
 
@@ -22,6 +23,12 @@ export class WsClient {
   private _handlers: Set<EventHandler> = new Set();
   private _retryCount = 0;
   private _intentionalClose = false;
+  private _onStatusChange: StatusChangeHandler | null = null;
+
+  /** Register a callback fired whenever the connection state flips. */
+  onStatusChange(handler: StatusChangeHandler): void {
+    this._onStatusChange = handler;
+  }
 
   get isConnected(): boolean {
     return this._ws?.readyState === WebSocket.OPEN;
@@ -62,6 +69,7 @@ export class WsClient {
       log.info("connected");
       this._retryCount = 0;
       this._ws = ws;
+      this._onStatusChange?.(true);
     };
 
     ws.onmessage = (ev: MessageEvent) => {
@@ -87,6 +95,7 @@ export class WsClient {
 
     ws.onclose = () => {
       this._ws = null;
+      this._onStatusChange?.(false);
       if (this._intentionalClose) {
         log.info("disconnected (intentional)");
         return;
