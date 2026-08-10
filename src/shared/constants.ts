@@ -53,4 +53,6 @@ export const MSG = {
   SET_SESSION: "set_session",
   LIST_SESSIONS: "list_sessions",
   NEW_SESSION: "new_session",
+  // background → content (agent tool dispatch)
+  SCROLL_TO: "scroll_to",
 } as const;

@@ -6,38 +6,6 @@ what is not yet built. For what the extension currently does, see the
 
 ---
 
-## Browser-Native Agent Tools
-
-**Goal:** Let the agent take actions on pages, not just read them.
-
-The current extension is read-only: it extracts page content and sends it to the agent.
-The next step is a set of browser-native tools that the server-side agent can call
-when `channel_id` is `browser`:
-
-| Tool | Description |
-|---|---|
-| `read_page` | Return full extracted text of a given tab URL on demand |
-| `read_pdf` | Server-side PDF text extraction via `pdfminer` / `pypdf` — unblocks PDF pages |
-| `get_selection` | Return the current text selection in the active tab |
-| `highlight_text(text)` | Highlight a passage in the active tab |
-| `fill_form(fields)` | Fill form fields by label or id |
-| `take_screenshot` | Capture the visible tab area as base64 PNG |
-| `open_url(url)` | Open a URL in a new tab |
-| `pin_page(tabId)` | Pin a specific tab to the active session programmatically |
-| `scroll_to(selector)` | Scroll the page to a CSS selector |
-
-`read_pdf` specifically resolves the current limitation where PDFs opened inline in
-Chrome cannot be extracted by the content script — the tool routes through the
-JiuwenSwarm server, which has access to `pdfminer` / `pypdf`.
-
-### Screenshot-Based Reasoning
-
-Capture a full-page screenshot and send it as a base64 image in the agent context block.
-This unblocks pages where text extraction yields little (dynamic dashboards, chart pages,
-table-heavy financial filings) by letting vision-capable models reason over the rendered page.
-
----
-
 ## Research Session Management
 
 **Goal:** Make a research session a first-class artifact, not just a chat thread.

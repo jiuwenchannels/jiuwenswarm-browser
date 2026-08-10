@@ -8,6 +8,7 @@
  * 4. Handle right-click context menus
  * 5. Watch tab lifecycle (context refresh, eviction)
  * 6. Route messages between side panel ↔ server
+ * 7. Dispatch browser-native agent tool calls (ToolDispatcher)
  */
 
 import { createLogger } from "@shared/logger";
@@ -22,6 +23,7 @@ import { SessionManager } from "./SessionManager";
 import { ContextCache } from "./ContextCache";
 import { TabWatcher } from "./TabWatcher";
 import { ContextMenu } from "./ContextMenu";
+import { ToolDispatcher } from "./ToolDispatcher";
 
 const log = createLogger("bg");
 
@@ -34,6 +36,7 @@ const cache = new ContextCache();
 const sessionMgr = new SessionManager(client);
 const tabWatcher = new TabWatcher(cache);
 const contextMenu = new ContextMenu(onContextMenuAction);
+const toolDispatcher = new ToolDispatcher(client, cache, tabWatcher, sessionMgr);
 
 // ---------------------------------------------------------------------------
 // Init
@@ -60,7 +63,15 @@ async function init(): Promise<void> {
         activeId: sessionMgr.activeSessionId,
       });
     }
-    // Forward all events to side panel ports
+    if (env.type === "tool_call") {
+      // Dispatch browser-native tool; do not forward to side panel
+      const p = env.payload as import("@shared/protocol").ToolCallPayload;
+      toolDispatcher.dispatch(p, env.session_id).catch((e) =>
+        log.error("tool dispatch error", e),
+      );
+      return;
+    }
+    // Forward all other events to side panel ports
     broadcastToSidePanel(env);
   });
   sessionMgr.refresh();

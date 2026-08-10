@@ -10,7 +10,7 @@ export interface PageMeta {
   url: string;
   title: string;
   /** MIME-like type detected by PageTypeDetector */
-  pageType: "article" | "github" | "arxiv" | "sec" | "pubmed" | "pdf" | "generic";
+  pageType: "article" | "github" | "arxiv" | "sec" | "pubmed" | "wikipedia" | "youtube" | "twitter" | "hackernews" | "pdf" | "generic";
   faviconUrl?: string;
   /** ISO-8601 timestamp when context was captured */
   capturedAt: string;

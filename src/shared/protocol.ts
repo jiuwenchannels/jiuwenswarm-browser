@@ -17,6 +17,7 @@ export type OutboundMsgType =
   | "list_sessions"
   | "delete_session"
   | "set_mode"
+  | "tool_result"
   | "ping";
 
 export interface OutboundEnvelope {
@@ -51,7 +52,6 @@ export type InboundMsgType =
   | "sessions"
   | "session_created"
   | "tool_call"
-  | "tool_result"
   | "pong";
 
 export interface InboundEnvelope {

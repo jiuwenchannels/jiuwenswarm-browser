@@ -22,6 +22,19 @@ startSelectionMonitor();
 startAnnotator();
 startFormAssist();
 
+// scroll_to tool — scroll the page to the first element matching a CSS selector
+chrome.runtime.onMessage.addListener((msg: { action: string; selector?: string }) => {
+  if (msg.action === MSG.SCROLL_TO && msg.selector) {
+    try {
+      const el = document.querySelector(msg.selector);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch {
+      // Invalid selector — ignore
+    }
+  }
+  return false;
+});
+
 // Extract and push context once the DOM is ready
 function pushContext(): void {
   try {
