@@ -138,6 +138,18 @@ async function handleSidePanelMsg(
       }
       const pinnedPages = await getPinnedPagesBySession(sessionId);
       const tabIds = pinnedPages.map((p) => p.tabId);
+      // Include a page's context so actions like "summarize this page" /
+      // "ask selection" give the agent the page content even when it is not
+      // pinned. Prefer the tab the action originated from (msg.tabId); fall
+      // back to the active tab of the last focused window.
+      const actionTabId = msg.tabId as number | undefined;
+      const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+      const contextTabId = actionTabId ?? activeTab?.id;
+      if (contextTabId != null && !tabIds.includes(contextTabId)) {
+        const ctx = await tabWatcher.extractFromTab(contextTabId);
+        if (ctx) cache.set(contextTabId, ctx);
+        tabIds.push(contextTabId);
+      }
       const context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
       client.send("chat.send", {
         content: msg.message as string,
@@ -283,7 +295,7 @@ async function onContextMenuAction(
   }
 
   if (action === "ask" && info.selectionText) {
-    broadcastToSidePanel({ action: "ask_selection", text: info.selectionText });
+    broadcastToSidePanel({ action: "ask_selection", text: info.selectionText, tabId });
   } else if (action === "pin" && tabId != null) {
     broadcastToSidePanel({ action: MSG.PIN_TAB, tabId });
   } else if (action === "summarize" && tabId != null) {

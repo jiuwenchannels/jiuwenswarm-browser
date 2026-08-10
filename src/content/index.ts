@@ -22,8 +22,9 @@ startSelectionMonitor();
 startAnnotator();
 startFormAssist();
 
-// scroll_to tool — scroll the page to the first element matching a CSS selector
-chrome.runtime.onMessage.addListener((msg: { action: string; selector?: string }) => {
+// Message listener: answers context-extraction requests and the scroll_to tool.
+// chrome.tabs.sendMessage needs a response for the request to not reject.
+chrome.runtime.onMessage.addListener((msg: { action: string; selector?: string }, _sender, sendResponse) => {
   if (msg.action === MSG.SCROLL_TO && msg.selector) {
     try {
       const el = document.querySelector(msg.selector);
@@ -31,6 +32,16 @@ chrome.runtime.onMessage.addListener((msg: { action: string; selector?: string }
     } catch {
       // Invalid selector — ignore
     }
+    return false;
+  }
+  if (msg.action === MSG.PAGE_CONTEXT) {
+    try {
+      sendResponse(extractPageContext());
+    } catch (e) {
+      log.warn("context extraction failed", e);
+      sendResponse(null);
+    }
+    return false;
   }
   return false;
 });

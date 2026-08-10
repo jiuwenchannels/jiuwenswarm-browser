@@ -179,12 +179,14 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       break;
 
     case "ask_selection":
+      _contextTabId = (msg.tabId as number) ?? null;
       chatInput.value = `> "${msg.text}"\n\n`;
       chatInput.dispatchEvent(new Event("input"));
       chatInput.focus();
       break;
 
     case "summarize_tab":
+      _contextTabId = (msg.tabId as number) ?? null;
       chatInput.value = "Please summarize this page.";
       chatInput.dispatchEvent(new Event("input"));
       chatInput.focus();
@@ -376,6 +378,8 @@ async function loadPinnedPages(sessionId: string): Promise<void> {
 let _connected = false;
 let _streaming = false;
 let _assistantEl: HTMLDivElement | null = null;
+/** Tab the last "summarize this page" / "ask selection" action targeted. */
+let _contextTabId: number | null = null;
 
 function setConnected(connected: boolean): void {
   _connected = connected;
@@ -439,7 +443,8 @@ function sendMessage(): void {
   chatInput.disabled = true;
   chatSend.disabled = true;
   beginAssistantTurn();
-  bridge.sendChat(text, chatMode.value);
+  bridge.sendChat(text, chatMode.value, _contextTabId ?? undefined);
+  _contextTabId = null;
 }
 
 chatSend.addEventListener("click", sendMessage);
