@@ -6,44 +6,6 @@ what is not yet built. For what the extension currently does, see the
 
 ---
 
-## Research Session Management
-
-**Goal:** Make a research session a first-class artifact, not just a chat thread.
-
-### Export
-
-Export a session as a portable research package:
-- Session title, mode, date
-- List of pinned pages: URL, title, page type, extraction summary
-- Full conversation transcript
-- Agent-generated synthesis (if requested)
-- Download as `.md` or `.json`; `.json` is re-importable
-
-Note: the JiuwenSwarm web app already exports conversation transcripts and screenshot
-snapshots. The extension's export is complementary — it bundles the pinned-page content
-together with the conversation, producing a self-contained research record.
-
-### Import and Merge
-
-- Import a previously exported session JSON — restores pinned page list and session metadata
-- Merge two sessions (combine pinned page lists; conversation history stays server-side)
-
-### Open in Web App
-
-One-click button to open the active session in the full JiuwenSwarm web app, giving
-access to teams, skills, code review, goal tracking, and other panels not available
-in the side panel. The extension serves as a lightweight entry point; heavy work
-moves to the web app naturally.
-
-### Session Templates
-
-Pre-built session starters that suggest which pages to pin and pre-fill structured prompts:
-- **Company research** — LinkedIn, Crunchbase, investor page, recent news
-- **Paper review** — structured prompts for summary, methodology, criticism
-- **Due diligence** — SEC filings, financials, news, competitors
-
----
-
 ## Collaboration and Annotations
 
 **Goal:** Make research persistent across visits and shareable across users.

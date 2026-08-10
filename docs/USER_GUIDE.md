@@ -44,12 +44,12 @@ Three ways to open it:
 ### Create Your First Session
 
 1. Open the side panel.
-2. Click **+ New** (top right of the panel).
-3. Type a session name, e.g. "Competitive analysis Q3".
-4. Press **Enter**. The session is created and becomes active.
+2. Click **+ New** (top right of the panel). A small form appears below the header.
+3. Type a session name, or pick a **template** to auto-fill the name, mode, and starting prompt.
+4. Choose a **mode** (Research, Chat, Summarize, or Compare).
+5. Click **Create**. The session is active immediately.
 
-You can rename or delete sessions later from the session picker (click the
-session name in the header).
+Switch sessions by clicking the session name in the header to open the session picker.
 
 ---
 
@@ -159,6 +159,25 @@ Change the mode when creating a session or via the session picker dropdown.
 
 ---
 
+## Agent Page Actions
+
+The agent can interact with pages you have open, not just read them. These
+actions are triggered automatically when the agent determines they are useful —
+no separate button is needed.
+
+| Action | What happens |
+|---|---|
+| **Highlight text** | The agent highlights passages it is citing in the active tab with a colored overlay. |
+| **Clear highlights** | Highlights are removed when the conversation moves on or the session changes. |
+| **Scroll to element** | The agent scrolls the tab to a specific section relevant to your question. |
+| **Fill form** | The agent fills fields in a form by label or field name — useful for search pages, data-entry tools, or research portals. |
+| **Take screenshot** | The agent captures the visible area of the active tab as a PNG for visual analysis. |
+| **Read a URL** | The agent reads a specific page directly, without the user needing to open it and pin it manually. |
+| **Open URL** | The agent opens a URL in a new tab — for example, to follow up a cited source. |
+| **Pin a page** | The agent can pin the current tab to the active session programmatically when relevant. |
+
+---
+
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -181,9 +200,41 @@ Click any session to switch to it. The context bar updates to show that
 session's pinned pages.
 
 ### Create a New Session
-Click **+ New** in the panel header. Name the session and press Enter.
+
+Click **+ New** in the panel header. A form appears with:
+- A name field
+- A **template** selector — choose a pre-built starter or leave it blank
+- A **mode** selector (Research / Chat / Summarize / Compare)
+
+**Built-in templates:**
+
+| Template | Mode | What it does |
+|---|---|---|
+| **Company Research** | Research | Suggests pinning the company website, LinkedIn, Crunchbase, and news; injects a company summary prompt |
+| **Paper Review** | Summarize | Suggests pinning the arXiv or PubMed page; injects a structured methodology + results prompt |
+| **Due Diligence** | Research | Suggests SEC filings, investor page, and news; injects a financials + risk prompt |
+
+Selecting a template auto-fills the name, sets the mode, shows suggested pages to pin, and injects the starting prompt into the chat as soon as the session is created.
+
+### Export a Session
+
+Click **⋯** in the panel header, then choose an export format:
+
+- **Export JSON** — downloads a `.json` file containing session metadata and all pinned pages. Re-importable.
+- **Export Markdown** — downloads a `.md` file with session info, page URLs, types, and a text preview of each pinned page. Useful for sharing or filing in a notes app.
+
+> Chat conversation history lives on the JiuwenSwarm server and is not included in either export.
+
+### Import a Session
+
+Click **⋯** → **Import session…** and select a previously exported `.json` file. All pinned pages from the file are added to the current active session. The session ID in the file is ignored — pages land in whatever session is active when you import.
+
+### Open in Web App
+
+Click **⋯** → **Open in web app** to open the active session in the JiuwenSwarm web app in a new tab. All pinned pages and chat history are already there — sessions are shared.
 
 ### Session Persistence
+
 Sessions are stored on the JiuwenSwarm server and survive browser restarts.
 They are shared with the JiuwenSwarm web app — any session you create in the
 extension appears there, and vice versa. Pinned page metadata (extracted text,
