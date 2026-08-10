@@ -1,168 +1,140 @@
 # Roadmap
 
-## What's Implemented
-
-### Scaffold & Core Loop (v0.1)
-- [x] MV3 Chrome extension scaffold (service worker, content scripts, side panel, popup, options)
-- [x] WebSocket connection to local JiuwenSwarm server with auto-reconnect
-- [x] Research sessions with pinned-page context aggregation
-- [x] Side panel: session picker, context bar (pinned page chips), shared chat iframe
-- [x] Keyboard shortcuts: open panel, pin page, ask about selection
-- [x] Right-click context menu: ask, pin, summarize
-- [x] Settings page: server host/port, default mode, behaviour toggles
-- [x] Text highlight injector (Annotator); form fill assist (FormAssist)
-- [x] SPA navigation detection (MutationObserver re-push on URL change)
-
-### Content Quality & Session Unification (v0.2)
-- [x] **Session unification** — server is single source of truth; extension stores only `activeSessionId` pointer; sessions created in extension appear in the web app and vice versa
-- [x] **9 page type adapters** — GitHub, arXiv, SEC EDGAR, PubMed, Wikipedia, YouTube, Twitter/X, Hacker News, generic (Readability.js)
-- [x] **Paragraph-boundary truncation** — 80% head / 20% tail split; cuts at `\n\n`; preserves document conclusions; replaces hard character slice
-- [x] **Extraction quality signals** — character count tooltip on each chip; ⚠ warning chip for < 200 chars extracted; PDF badge; retry button for low-extraction and PDF pages
-- [x] **PDF detection** — early return with server-tool hint stub; `read_pdf` server-side path planned for v0.3
+Planned next steps for the JiuwenSwarm browser extension. This document covers
+what is not yet built. For what the extension currently does, see the
+[User Guide](USER_GUIDE.md).
 
 ---
 
-## Architectural Context: Relationship with the JiuwenSwarm Web App
+## Browser-Native Agent Tools
 
-The JiuwenSwarm web app (`channels/web`) is a full-featured AI development platform
-with 244 TypeScript source files, multi-agent orchestration, team collaboration, code
-mode with git diff, goal tracking, cron scheduling, extension management, TraceHound
-debugging, and rich document preview (DOCX, Excel, PowerPoint, Markdown+Mermaid+KaTeX).
-It is the primary interface to the JiuwenSwarm server for all deliberate, focused work.
+**Goal:** Let the agent take actions on pages, not just read them.
 
-**The browser extension is not a replacement or a lighter version of the web app.**
-They serve fundamentally different interaction patterns:
-
-| | Web App | Browser Extension |
-|---|---|---|
-| **Pattern** | User goes to it intentionally | Ambient — present on every page |
-| **Context source** | User pastes or uploads content | Auto-extracted from tabs you browse |
-| **Placement** | Separate browser tab | Side panel alongside external sites |
-| **Unique capability** | Rich panels: teams, skills, agents, code review, cron | Content script access to any live page |
-| **Best for** | Focused development and research sessions | Reading-while-researching workflows |
-
-The extension is a thin ambient layer that feeds content and quick interactions into
-the same backend as the web app — not a standalone product. Sessions are shared.
-
----
-
-## v0.3 — Agent Tool Integration
-
-**Goal:** Let the agent take actions on the page, not just read it.
-
-### Browser-Native Agent Tools
-Expose the following tools to the server-side agent when the channel is `browser`:
+The current extension is read-only: it extracts page content and sends it to the agent.
+The next step is a set of browser-native tools that the server-side agent can call
+when `channel_id` is `browser`:
 
 | Tool | Description |
 |---|---|
-| `read_page` | Return full extracted text of a given tab URL |
-| `read_pdf` | Server-side PDF text extraction via `pdfminer` / `pypdf` — unblocks inline PDFs |
-| `get_selection` | Return current text selection in active tab |
+| `read_page` | Return full extracted text of a given tab URL on demand |
+| `read_pdf` | Server-side PDF text extraction via `pdfminer` / `pypdf` — unblocks PDF pages |
+| `get_selection` | Return the current text selection in the active tab |
 | `highlight_text(text)` | Highlight a passage in the active tab |
 | `fill_form(fields)` | Fill form fields by label or id |
-| `take_screenshot` | Capture visible tab area as base64 PNG |
+| `take_screenshot` | Capture the visible tab area as base64 PNG |
 | `open_url(url)` | Open a URL in a new tab |
-| `pin_page(tabId)` | Pin a specific tab to the active session |
-| `scroll_to(selector)` | Scroll page to a CSS selector |
+| `pin_page(tabId)` | Pin a specific tab to the active session programmatically |
+| `scroll_to(selector)` | Scroll the page to a CSS selector |
 
-These replace the IDE tools (`read_file`, `write_file`, `run_bash`) that are
-not applicable in a browser context. The server routes tool calls to the correct
-channel based on `channel_id`.
+`read_pdf` specifically resolves the current limitation where PDFs opened inline in
+Chrome cannot be extracted by the content script — the tool routes through the
+JiuwenSwarm server, which has access to `pdfminer` / `pypdf`.
 
 ### Screenshot-Based Reasoning
-- Capture full-page screenshot on demand
-- Send as base64 image in the context block (for vision-capable models)
-- Useful for pages where text extraction fails (tables, diagrams, dynamic dashboards)
+
+Capture a full-page screenshot and send it as a base64 image in the agent context block.
+This unblocks pages where text extraction yields little (dynamic dashboards, chart pages,
+table-heavy financial filings) by letting vision-capable models reason over the rendered page.
 
 ---
 
-## v0.4 — Research Session Management
+## Research Session Management
 
-**Goal:** Make research sessions a first-class workflow, not just a chat thread.
+**Goal:** Make a research session a first-class artifact, not just a chat thread.
 
-### Session Export (Extension-Specific)
-The web app already has session export (screenshot/image snapshot, conversation history
-export, and a `/share-api/snapshot` endpoint). The extension's export is different:
-it exports the **research package** — the combination of pinned pages + conversation,
-not just the chat transcript.
+### Export
 
-- Export a session as a Markdown research package:
-  - Session title, mode, date
-  - List of pinned pages: URL, title, page type, extraction summary
-  - Full conversation transcript
-  - Agent-generated synthesis (if requested)
+Export a session as a portable research package:
+- Session title, mode, date
+- List of pinned pages: URL, title, page type, extraction summary
+- Full conversation transcript
+- Agent-generated synthesis (if requested)
 - Download as `.md` or `.json`; `.json` is re-importable
 
-### Session Import / Merge
+Note: the JiuwenSwarm web app already exports conversation transcripts and screenshot
+snapshots. The extension's export is complementary — it bundles the pinned-page content
+together with the conversation, producing a self-contained research record.
+
+### Import and Merge
+
 - Import a previously exported session JSON — restores pinned page list and session metadata
 - Merge two sessions (combine pinned page lists; conversation history stays server-side)
 
-### Shared Sessions
-- The web app's `/share-api/snapshot` already supports sharing conversation snapshots
-- Extension adds: "Open in web app" button — opens the active session in the web app
-  for full access to teams, skills, code review, and other panels not in the extension
-- This makes the extension a quick-start surface; heavy work moves to the web app naturally
+### Open in Web App
+
+One-click button to open the active session in the full JiuwenSwarm web app, giving
+access to teams, skills, code review, goal tracking, and other panels not available
+in the side panel. The extension serves as a lightweight entry point; heavy work
+moves to the web app naturally.
 
 ### Session Templates
-- "Company research" template: pre-suggests pinning LinkedIn, Crunchbase, investor page, news
-- "Paper review" template: structured prompts for summary, methodology, criticism
-- "Due diligence" template: financials + SEC filings + news + competitors
+
+Pre-built session starters that suggest which pages to pin and pre-fill structured prompts:
+- **Company research** — LinkedIn, Crunchbase, investor page, recent news
+- **Paper review** — structured prompts for summary, methodology, criticism
+- **Due diligence** — SEC filings, financials, news, competitors
 
 ---
 
-## v0.5 — Collaboration and Annotations
+## Collaboration and Annotations
 
-**Goal:** Make research shareable and annotatable.
+**Goal:** Make research persistent across visits and shareable across users.
 
 ### Persistent Page Annotations
-- When the agent highlights a passage (Annotator), save the highlight to storage
-- Show highlights on return visits to the same URL (restored via content script)
-- Allow user to add sticky notes to highlights
+
+When the agent highlights a passage in a tab, save that highlight to storage so it
+reappears on the next visit to the same URL. Allow the user to add sticky notes
+attached to highlights.
 
 ### Note-Taking Sidebar
-- Lightweight markdown editor inside the side panel (below context bar)
-- Notes auto-save to the active session
-- Referenced in agent context: "The user noted: …"
 
-### Team Sessions (v0.5+)
-- Requires a shared JiuwenSwarm server instance (multi-user)
-- Multiple users can pin pages to a shared session
-- Real-time sync of pinned pages and chat via server WebSocket broadcast
+A lightweight markdown editor inside the side panel (below the context bar). Notes
+auto-save to the active session and are referenced in agent context as
+"The user noted: …".
+
+### Team Sessions
+
+Requires a shared JiuwenSwarm server instance (multi-user deployment). Multiple
+users pin pages to a shared session; pinned pages and chat sync in real time via
+the server WebSocket broadcast.
 
 ---
 
-## v1.0 — Distribution
+## Distribution
 
-**Goal:** Publishable to Chrome Web Store.
+**Goal:** Extension ready for the Chrome Web Store and Firefox.
 
-### Chrome Web Store Compliance
-- Replace placeholder icons with production SVG-derived PNGs (5 sizes)
+### Chrome Web Store
+
+- Replace placeholder icons with production SVG-derived PNGs (5 required sizes)
 - Write store listing: description, screenshots, privacy policy URL
-- Conduct MV3 security audit (no remote code execution, no eval)
-- Test on Chrome stable + Chrome Beta
+- MV3 security audit: no remote code execution, no eval
+- Test on Chrome Stable and Chrome Beta channels
 
-### Firefox Adaptation (MV3 / MV2 bridge)
-- Firefox does not yet support `chrome.sidePanel` — use a sidebar (`sidebar_action`) instead
-- Content scripts and background logic require minimal changes
-- Shared codebase; Firefox-specific entry in `manifest.json`
+### Firefox
+
+Firefox does not yet support `chrome.sidePanel` — the equivalent is `sidebar_action`.
+The content scripts and background logic need minimal changes; the Firefox build
+will share the same codebase with a Firefox-specific entry in `manifest.json`.
 
 ### Automated Testing
-- Playwright + `chrome` extension loading for E2E tests
-- Unit tests for `Extractor.ts`, `PageTypeDetector.ts`, adapters, `ContextCache.ts`
+
+- Playwright end-to-end tests with `chrome` extension loading
+- Unit tests for `Extractor.ts`, `PageTypeDetector.ts`, all adapters, `ContextCache.ts`
 - CI on push: build + lint + unit tests
 
 ---
 
-## Future Ideas (Unscheduled)
+## Future Ideas
 
 | Idea | Notes |
 |---|---|
 | **Offline mode** | Cache last agent response for re-reading without server |
 | **Reading mode overlay** | Render Readability output in a clean overlay (like Reader Mode) with chat attached |
 | **Batch pin** | Pin all open tabs in the current window to a session at once |
-| **Schedule research** | Background agent runs while the user is away; notifies with findings |
+| **Schedule research** | Background agent runs while away; notifies with findings |
 | **Databricks / Colab adapter** | Detect notebook-like environments, extract cell outputs |
 | **Auto-summarize on pin** | Immediately ask the agent for a 3-sentence summary when a page is pinned |
 | **Link graph** | Visualize connections between pinned pages based on shared topics |
-| **Voice input** | Web Speech API → text; voice in/out already exists in the web app; extension can expose the same capability via the shared chat iframe |
-| **Cron research jobs** | Schedule recurring research tasks (web app has cron panel server-side; extension surfaces a simplified "monitor this topic" shortcut) |
+| **Voice input** | Web Speech API → text; the web app already has voice in/out via the shared chat iframe |
+| **Cron research jobs** | Schedule recurring research tasks; the web app has a cron panel; extension surfaces a simplified "monitor this topic" shortcut |

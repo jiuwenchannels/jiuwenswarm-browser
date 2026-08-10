@@ -15,6 +15,8 @@ on screen.
 ### Research Session
 A named conversation scope. All pinned pages, chat history, and agent context
 belong to a session. You can have multiple sessions and switch between them.
+Sessions are stored on the JiuwenSwarm server — they appear in the web app
+as well, so you can start research in the browser and continue it there.
 
 ### Pinned Page
 A snapshot of a page's extracted text added to the active session's context.
@@ -64,7 +66,25 @@ context. The agent will use it when answering your questions.
 - **Right-click:** Right-click the page → **Pin this page to research session**.
 
 The pinned page appears as a chip in the context bar under the header.
-Hover over a chip to see the full URL. Click **×** to unpin.
+Hover over a chip to see the full URL, page type, and how many characters
+were extracted. Click **×** to unpin.
+
+### Extraction Quality Signals
+
+Each chip in the context bar shows information about the extraction:
+
+- **Tooltip** — hover over any chip to see the full URL, page type, and the
+  number of characters extracted.
+- **⚠ warning** — a chip with a red border and warning icon means very little
+  text was extracted (under 200 characters). This usually means the page is
+  JS-rendered and needs a moment to load, or it is behind a login. Try unpinning
+  and re-pinning after the page fully loads.
+- **PDF badge** — the page is a PDF opened inline in Chrome. Content script
+  extraction does not work on binary PDFs; the **↻** retry button will re-attempt
+  extraction via the JiuwenSwarm server's `read_pdf` tool if that tool is
+  available.
+- **↻ retry button** — visible on warning chips and PDF chips. Click to unpin the
+  old version and re-extract the current state of the page.
 
 ### Page Types
 
@@ -75,14 +95,17 @@ extractor:
 |---|---|
 | **Article / news** | Main body text via Readability.js |
 | **GitHub** | README, issue/PR body, comments, repo description |
-| **arXiv** | Title, authors, abstract, full paper (ar5iv.org) |
+| **arXiv** | Title, authors, abstract, full paper text |
 | **SEC EDGAR** | Filing content, 10-K/10-Q/8-K document body |
 | **PubMed** | Abstract, full text (PMC), authors, MeSH terms |
-| **Generic** | Readability fallback on any other page |
+| **Wikipedia** | Lead section + article body; references and navboxes stripped |
+| **YouTube** | Video title, channel, description, and auto-generated transcript (when available) |
+| **Twitter / X** | Tweet thread text with quoted tweets; handles multi-reply threads |
+| **Hacker News** | Submission title and URL, top-level comments; front page link lists |
+| **Generic** | Readability.js fallback on any other page |
 
-> **PDFs** opened directly in Chrome (URL ending in `.pdf`) are detected
-> and noted as PDF type. Full text extraction from binary PDFs requires
-> a server-side tool and is a v2 feature.
+> **PDFs** opened directly in Chrome are detected and shown with a **PDF** badge.
+> Text extraction from binary PDFs requires the server-side `read_pdf` tool.
 
 ### Research Across Multiple Tabs
 
@@ -161,9 +184,10 @@ session's pinned pages.
 Click **+ New** in the panel header. Name the session and press Enter.
 
 ### Session Persistence
-Sessions and pinned page metadata are stored locally in Chrome storage.
-They survive browser restarts. Chat history is stored server-side in the
-JiuwenSwarm server's session registry.
+Sessions are stored on the JiuwenSwarm server and survive browser restarts.
+They are shared with the JiuwenSwarm web app — any session you create in the
+extension appears there, and vice versa. Pinned page metadata (extracted text,
+URLs) is stored locally in Chrome storage and is browser-specific.
 
 ---
 
@@ -190,13 +214,20 @@ Open settings via the popup (**⚙ Settings**) or right-click the toolbar icon �
 2. Verify the host and port in Settings match your server configuration.
 3. If the server is on a different port, update Settings → Save → wait 5 seconds.
 
-### Page context is empty or wrong
+### Page context is empty or shows a warning chip
 
 - Some pages block content scripts (bank portals, Chrome internal pages).
   These pages cannot be extracted.
 - SPA pages (React, Next.js) may need a moment to render. Try unpinning and
   re-pinning after the page fully loads.
-- PDF pages shown inline in Chrome: extraction requires a v2 server-side tool.
+- Click the **↻** retry button on the chip to re-extract the current page state.
+
+### PDF chip shows no text
+
+PDF pages opened inline in Chrome cannot be extracted by the content script.
+The chip shows a **PDF** badge. Use the **↻** retry button, which will route
+extraction through the server-side `read_pdf` tool if it is available on your
+JiuwenSwarm server.
 
 ### Side panel does not open
 
@@ -205,9 +236,11 @@ command has no effect.
 
 ### Context is cut off
 
-Pages are capped at 120,000 characters per page. Very long documents
-(e.g., large SEC filings) are truncated. A `[...truncated]` marker appears
-in the extracted text. The server also enforces its own context window limit.
+Pages are capped at 120,000 characters. Very long documents are truncated using
+a head + tail strategy: the first ~80% of the budget and the last ~20% are kept,
+preserving both the opening and any summary or conclusion at the document end.
+A `[...truncated...]` marker appears in the extracted text. The server also enforces
+its own context window limit.
 
 ---
 
@@ -219,4 +252,6 @@ in the extracted text. The server also enforces its own context window limit.
 - Page content is held in the extension's in-memory cache and in Chrome local
   storage. It is never transmitted outside your machine except to your local
   JiuwenSwarm server.
-- Uninstalling the extension deletes all locally stored data.
+- Sessions are stored on your local JiuwenSwarm server.
+- Uninstalling the extension deletes all locally stored data (pinned page metadata
+  and settings). Sessions on the server are unaffected.

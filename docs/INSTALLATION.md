@@ -109,4 +109,5 @@ JiuwenSwarm card. No need to re-add the extension.
 ## Uninstalling
 
 Go to `chrome://extensions`, find JiuwenSwarm, and click **Remove**.
-All locally stored sessions and pinned pages are deleted when the extension is removed.
+Locally stored data (pinned page metadata, settings) is deleted. Sessions are stored
+on the JiuwenSwarm server and are unaffected — they remain accessible via the web app.
