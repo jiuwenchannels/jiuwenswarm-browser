@@ -8,7 +8,7 @@
 
 import { createLogger } from "@shared/logger";
 import { loadActiveSessionId, saveActiveSessionId } from "@shared/storage";
-import { AgentMode, ResearchSession } from "@shared/types";
+import { ResearchSession } from "@shared/types";
 import type { WsClient } from "./WsClient";
 
 const log = createLogger("bg/sessions");
@@ -62,7 +62,7 @@ export class SessionManager {
         .map((ss) => ({
           id: ss.session_id,
           title: ss.title || ss.session_id,
-          mode: (ss.mode as AgentMode) || "chat",
+          mode: (ss.mode as string) || "chat",
           createdAt: ss.created_at || new Date().toISOString(),
           updatedAt: ss.created_at || new Date().toISOString(),
           pinnedPageIds: [],
@@ -92,11 +92,10 @@ export class SessionManager {
   }
 
   /** Create a new session on the server and activate it. */
-  async createSession(title: string, mode: AgentMode = "research"): Promise<void> {
+  async createSession(title: string): Promise<void> {
     try {
       const payload = await this._client.request("session.create", {
         title,
-        mode,
         create_token: this._randomHex(16),
       });
       const sid = payload.session_id as string | undefined;
@@ -122,7 +121,7 @@ export class SessionManager {
       this._sessions.unshift({
         id: sessionId,
         title: sessionId,
-        mode: (mode as AgentMode) || "chat",
+        mode: mode || "chat",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         pinnedPageIds: [],

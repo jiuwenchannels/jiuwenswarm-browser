@@ -56,6 +56,7 @@ export const MSG = {
   SET_SESSION: "set_session",
   LIST_SESSIONS: "list_sessions",
   NEW_SESSION: "new_session",
+  GET_PENDING_ACTION: "get_pending_action",
   // background → content (agent tool dispatch)
   SCROLL_TO: "scroll_to",
   // background → content (annotation restoration on page load)

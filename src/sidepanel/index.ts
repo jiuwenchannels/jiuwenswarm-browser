@@ -38,7 +38,6 @@ const chatEmpty       = document.getElementById("chat-empty")!;
 const chatEmptySub    = document.getElementById("chat-empty-sub")!;
 const chatInput       = document.getElementById("chat-input") as HTMLTextAreaElement;
 const chatSend        = document.getElementById("chat-send") as HTMLButtonElement;
-const chatMode        = document.getElementById("chat-mode") as HTMLSelectElement;
 
 // Header buttons
 const newSessionBtn   = document.getElementById("new-session-btn")!;
@@ -62,7 +61,6 @@ const importInput     = document.getElementById("import-input") as HTMLInputElem
 const newSessionForm  = document.getElementById("new-session-form")!;
 const nfTitle         = document.getElementById("nf-title") as HTMLInputElement;
 const nfTemplate      = document.getElementById("nf-template") as HTMLSelectElement;
-const nfMode          = document.getElementById("nf-mode") as HTMLSelectElement;
 const nfHint          = document.getElementById("nf-hint")!;
 const nfCreateBtn     = document.getElementById("nf-create-btn")!;
 const nfCancelBtn     = document.getElementById("nf-cancel-btn")!;
@@ -198,7 +196,8 @@ function handleBgMsg(msg: Record<string, unknown>): void {
 
     case "summarize_tab":
       _contextTabId = (msg.tabId as number) ?? null;
-      chatInput.value = "Please summarize this page.";
+      chatInput.value =
+        "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point.";
       chatInput.dispatchEvent(new Event("input"));
       chatInput.focus();
       break;
@@ -326,12 +325,11 @@ nfCancelBtn.addEventListener("click", () => {
   _resetForm();
 });
 
-// Template select: auto-fill title and mode, show page hint
+// Template select: auto-fill title, show page hint
 nfTemplate.addEventListener("change", () => {
   const tpl = getTemplate(nfTemplate.value);
   if (tpl) {
     nfTitle.value = tpl.defaultTitle;
-    nfMode.value  = tpl.defaultMode;
     nfHint.textContent = `Suggested pages: ${tpl.suggestedPages.join(", ")}`;
     nfHint.classList.add("visible");
   } else {
@@ -343,13 +341,12 @@ nfTemplate.addEventListener("change", () => {
 
 nfCreateBtn.addEventListener("click", () => {
   const title = nfTitle.value.trim() || "Research session";
-  const mode  = nfMode.value as "research" | "chat" | "summarize" | "compare";
   const templateId = nfTemplate.value || null;
 
   // Store template so we can inject the starting prompt once the session is created
   _pendingTemplateId = templateId;
 
-  bridge.createSession(title, mode);
+  bridge.createSession(title);
   newSessionForm.classList.remove("open");
   _resetForm();
 });
@@ -363,7 +360,6 @@ nfTitle.addEventListener("keydown", (e) => {
 function _resetForm(): void {
   nfTitle.value = "";
   nfTemplate.value = "";
-  nfMode.value = "research";
   nfHint.textContent = "";
   nfHint.classList.remove("visible");
   _pendingTemplateId = null;
@@ -462,7 +458,7 @@ function sendMessage(): void {
   chatInput.disabled = true;
   chatSend.disabled = true;
   beginAssistantTurn();
-  bridge.sendChat(text, chatMode.value, _contextTabId ?? undefined, noteEditor.getNoteText() || undefined);
+  bridge.sendChat(text, _contextTabId ?? undefined, noteEditor.getNoteText() || undefined);
   _contextTabId = null;
 }
 

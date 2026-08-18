@@ -12,7 +12,7 @@
  */
 
 import { addPinnedPage, getPinnedPagesBySession, loadSettings } from "@shared/storage";
-import { AgentMode, PinnedPage, ResearchSession } from "@shared/types";
+import { PinnedPage, ResearchSession } from "@shared/types";
 
 // ---------------------------------------------------------------------------
 // Session templates
@@ -22,7 +22,6 @@ export interface SessionTemplate {
   id: string;
   label: string;
   defaultTitle: string;
-  defaultMode: AgentMode;
   startingPrompt: string;
   suggestedPages: string[];
 }
@@ -32,7 +31,6 @@ export const SESSION_TEMPLATES: SessionTemplate[] = [
     id: "company-research",
     label: "Company Research",
     defaultTitle: "Company Research",
-    defaultMode: "research",
     startingPrompt:
       "Pin the company website, LinkedIn profile, and recent news, then ask:\n\nSummarize this company — what they do, their funding stage, key people, and recent developments.",
     suggestedPages: ["Company website", "LinkedIn", "Crunchbase", "Recent news"],
@@ -41,7 +39,6 @@ export const SESSION_TEMPLATES: SessionTemplate[] = [
     id: "paper-review",
     label: "Paper Review",
     defaultTitle: "Paper Review",
-    defaultMode: "summarize",
     startingPrompt:
       "Pin the paper on arXiv or PubMed, then ask:\n\nSummarize this paper — what problem it solves, the methodology, key results, and limitations.",
     suggestedPages: ["arXiv or PubMed page", "Related papers"],
@@ -50,7 +47,6 @@ export const SESSION_TEMPLATES: SessionTemplate[] = [
     id: "due-diligence",
     label: "Due Diligence",
     defaultTitle: "Due Diligence",
-    defaultMode: "research",
     startingPrompt:
       "Pin the SEC filings, company investor page, and recent news, then ask:\n\nPerform due diligence — analyze financials, key risks, competitive position, and recent developments.",
     suggestedPages: ["SEC EDGAR filing", "Company IR page", "Recent news", "Competitor pages"],

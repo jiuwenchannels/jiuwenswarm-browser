@@ -115,10 +115,21 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 const sidePanelPorts: Set<chrome.runtime.Port> = new Set();
 
+// A context-menu action that arrived while the side panel was not yet loaded.
+// The panel pulls it once it connects (see GET_PENDING_ACTION), so actions like
+// "Summarize this page" / "Ask about selection" are not lost to a race.
+let _pendingAction: { action: string; tabId?: number | undefined; text?: string } | null = null;
+
 chrome.runtime.onConnect.addListener((port) => {
   if (port.name !== "sidepanel") return;
   sidePanelPorts.add(port);
   log.debug("side panel connected, total:", sidePanelPorts.size);
+
+  // Deliver any queued context-menu action now that the panel is ready.
+  if (_pendingAction) {
+    port.postMessage(_pendingAction);
+    _pendingAction = null;
+  }
 
   port.onMessage.addListener((msg: Record<string, unknown>) => {
     handleSidePanelMsg(msg, port);
@@ -177,10 +188,16 @@ async function handleSidePanelMsg(
       if (notes) {
         context = `[User notes]\n${notes}\n\n${context}`;
       }
+      // The gateway builds the agent prompt from `content`/`query` only — a
+      // separate `context` param is silently ignored. Fold the page context
+      // (and notes) into `content` so the agent actually sees it.
+      const userMessage = msg.message as string;
+      const fullContent = context
+        ? `${context}\n\n---\n\n${userMessage}`
+        : userMessage;
       client.send("chat.send", {
-        content: msg.message as string,
-        context: context || undefined,
-        mode: (msg.mode as string) || sessionMgr.activeSession?.mode || "chat",
+        content: fullContent,
+        query: fullContent,
         session_id: sessionId,
       });
       break;
@@ -226,11 +243,16 @@ async function handleSidePanelMsg(
       });
       break;
 
+    case MSG.GET_PENDING_ACTION: {
+      if (_pendingAction) {
+        port.postMessage(_pendingAction);
+        _pendingAction = null;
+      }
+      break;
+    }
+
     case MSG.NEW_SESSION: {
-      sessionMgr.createSession(
-        (msg.title as string) || "New session",
-        (msg.mode as "research" | "chat" | "summarize" | "compare") || "research"
-      );
+      sessionMgr.createSession((msg.title as string) || "New session");
       break;
     }
 
@@ -330,10 +352,22 @@ async function onContextMenuAction(
   await openPanel(windowId);
 
   if (action === "ask" && info.selectionText) {
-    broadcastToSidePanel({ action: "ask_selection", text: info.selectionText, tabId });
+    _deliverAction({ action: "ask_selection", text: info.selectionText, tabId });
   } else if (action === "pin" && tabId != null) {
-    broadcastToSidePanel({ action: MSG.PIN_TAB, tabId });
+    _deliverAction({ action: MSG.PIN_TAB, tabId });
   } else if (action === "summarize" && tabId != null) {
-    broadcastToSidePanel({ action: "summarize_tab", tabId });
+    _deliverAction({ action: "summarize_tab", tabId });
   }
+}
+
+/**
+ * Send a context-menu action to the side panel. If the panel is not connected
+ * yet (e.g. it was just opened), queue it so the panel receives it on connect.
+ */
+function _deliverAction(action: { action: string; tabId?: number | undefined; text?: string }): void {
+  if (sidePanelPorts.size === 0) {
+    _pendingAction = action;
+    return;
+  }
+  broadcastToSidePanel(action);
 }

@@ -4,14 +4,12 @@
  */
 
 import { loadSettings, saveSettings } from "@shared/storage";
-import { AgentMode } from "@shared/types";
 import { createLogger } from "@shared/logger";
 
 const log = createLogger("options");
 
 const hostInput = document.getElementById("host") as HTMLInputElement;
 const portInput = document.getElementById("port") as HTMLInputElement;
-const defaultModeSelect = document.getElementById("default-mode") as HTMLSelectElement;
 const autoExtractCheck = document.getElementById("auto-extract") as HTMLInputElement;
 const showAnnotationsCheck = document.getElementById("show-annotations") as HTMLInputElement;
 const saveBtn = document.getElementById("save-btn")!;
@@ -21,7 +19,6 @@ async function load(): Promise<void> {
   const settings = await loadSettings();
   hostInput.value = settings.host;
   portInput.value = String(settings.port);
-  defaultModeSelect.value = settings.defaultMode;
   autoExtractCheck.checked = settings.autoExtract;
   showAnnotationsCheck.checked = settings.showAnnotations;
   log.debug("settings loaded", settings);
@@ -36,7 +33,6 @@ saveBtn.addEventListener("click", async () => {
   await saveSettings({
     host: hostInput.value.trim() || "127.0.0.1",
     port,
-    defaultMode: defaultModeSelect.value as AgentMode,
     autoExtract: autoExtractCheck.checked,
     showAnnotations: showAnnotationsCheck.checked,
   });

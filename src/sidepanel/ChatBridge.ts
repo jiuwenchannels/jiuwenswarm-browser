@@ -33,6 +33,7 @@ export class ChatBridge {
     // Request initial state
     this._send({ action: MSG.GET_STATUS });
     this._send({ action: MSG.LIST_SESSIONS });
+    this._send({ action: MSG.GET_PENDING_ACTION });
   }
 
   setActiveSession(sessionId: string): void {
@@ -40,11 +41,10 @@ export class ChatBridge {
     this._send({ action: MSG.SET_SESSION, sessionId });
   }
 
-  sendChat(message: string, mode?: string, contextTabId?: number, notes?: string): void {
+  sendChat(message: string, contextTabId?: number, notes?: string): void {
     this._send({
       action: MSG.SEND_AGENT,
       message,
-      mode,
       ...(contextTabId != null ? { tabId: contextTabId } : {}),
       ...(notes ? { notes } : {}),
       sessionId: this._sessionId,
@@ -59,8 +59,8 @@ export class ChatBridge {
     });
   }
 
-  createSession(title: string, mode: string): void {
-    this._send({ action: MSG.NEW_SESSION, title, mode });
+  createSession(title: string): void {
+    this._send({ action: MSG.NEW_SESSION, title });
   }
 
   retryPin(tabId: number, oldPinId: string): void {

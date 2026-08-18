@@ -41,6 +41,22 @@ export class TabWatcher {
       const response = await chrome.tabs.sendMessage(tabId, {
         action: MSG.PAGE_CONTEXT,
       });
+      if (response) return response as PageContext;
+    } catch (e) {
+      // Content script not present (e.g. page was open before the extension was
+      // loaded). Fall through and inject it on demand below.
+      log.debug(`content script not present in tab ${tabId}, injecting`, e);
+    }
+
+    // Inject the content script on demand, then retry the message once.
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["content/index.js"],
+      });
+      const response = await chrome.tabs.sendMessage(tabId, {
+        action: MSG.PAGE_CONTEXT,
+      });
       return (response as PageContext) ?? null;
     } catch (e) {
       log.warn(`failed to extract context from tab ${tabId}`, e);

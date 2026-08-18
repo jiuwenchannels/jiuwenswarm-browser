@@ -1,7 +1,5 @@
 /** Shared domain types for the JiuwenSwarm browser extension. */
 
-export type AgentMode = "research" | "chat" | "summarize" | "compare";
-
 // ---------------------------------------------------------------------------
 // Page context
 // ---------------------------------------------------------------------------
@@ -62,7 +60,7 @@ export interface AnnotationEntry {
 export interface ResearchSession {
   id: string;           // nanoid
   title: string;
-  mode: AgentMode;
+  mode: string;
   createdAt: string;   // ISO-8601
   updatedAt: string;
   pinnedPageIds: string[];
@@ -75,8 +73,6 @@ export interface ResearchSession {
 export interface ExtensionSettings {
   host: string;
   port: number;
-  /** Default agent mode for new sessions */
-  defaultMode: AgentMode;
   /** Auto-extract page context when side panel opens */
   autoExtract: boolean;
   /** Show inline annotations on pinned pages */
@@ -86,7 +82,6 @@ export interface ExtensionSettings {
 export const DEFAULT_SETTINGS: ExtensionSettings = {
   host: "127.0.0.1",
   port: 19000,
-  defaultMode: "research",
   autoExtract: true,
   showAnnotations: true,
 };
