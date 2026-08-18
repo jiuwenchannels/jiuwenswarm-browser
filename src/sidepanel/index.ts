@@ -136,7 +136,10 @@ function handleBgMsg(msg: Record<string, unknown>): void {
     }
 
     case "error": {
-      const message = ((msg.payload as { message?: string }) ?? {}).message ?? "Unknown error";
+      const message =
+        ((msg.payload as { message?: string }) ?? {}).message ??
+        (msg.message as string | undefined) ??
+        "Unknown error";
       endTurn();
       renderError(message);
       break;
@@ -185,10 +188,6 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       contextBar.addPage(msg.page as PinnedPage);
       break;
     }
-
-    case "error":
-      log.warn("error from background", msg.message);
-      break;
 
     case "ask_selection":
       _contextTabId = (msg.tabId as number) ?? null;

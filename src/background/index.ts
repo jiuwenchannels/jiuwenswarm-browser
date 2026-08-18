@@ -244,6 +244,7 @@ async function handleSidePanelMsg(
         action: MSG.STATUS,
         connected: client.isConnected,
         activeSessionId: sessionMgr.activeSessionId,
+        activeSessionTitle: sessionMgr.activeSession?.title ?? null,
       });
       break;
 
@@ -266,6 +267,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({
       connected: client.isConnected,
       activeSessionId: sessionMgr.activeSessionId,
+      activeSessionTitle: sessionMgr.activeSession?.title ?? null,
     });
     return false;
   }

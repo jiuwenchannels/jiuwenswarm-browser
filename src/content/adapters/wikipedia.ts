@@ -40,7 +40,7 @@ export function extractWikipedia(): { title: string; text: string } {
           break;
         }
       }
-      const text = node instanceof HTMLElement ? node.innerText.trim() : (node.textContent?.trim() ?? "");
+      const text = node.innerText.trim();
       if (text) parts.push(text);
     }
   }

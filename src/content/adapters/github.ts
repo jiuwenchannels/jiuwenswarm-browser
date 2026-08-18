@@ -5,7 +5,7 @@ export function extractGitHub(): { title: string; text: string } {
   const parts: string[] = [];
 
   // README / file view
-  const article = document.querySelector("article.markdown-body");
+  const article = document.querySelector<HTMLElement>("article.markdown-body");
   if (article) {
     parts.push(article.innerText.trim());
   }

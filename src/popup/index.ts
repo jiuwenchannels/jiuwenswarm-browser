@@ -29,10 +29,7 @@ chrome.runtime.sendMessage({ action: MSG.GET_STATUS }, async (resp) => {
 
   const activeId: string | null = resp.activeSessionId;
   if (activeId) {
-    // Fetch session info from storage
-    const sessions = await (await import("@shared/storage")).loadSessions();
-    const session = sessions.find((s) => s.id === activeId);
-    sessionName.textContent = session?.title ?? activeId;
+    sessionName.textContent = resp.activeSessionTitle ?? activeId;
 
     const pages = await getPinnedPagesBySession(activeId);
     pinCount.textContent = String(pages.length);

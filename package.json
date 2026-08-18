@@ -5,7 +5,7 @@
   "description": "JiuwenSwarm browser extension — AI research assistant for any web page",
   "scripts": {
     "dev": "vite build --watch",
-    "build": "node scripts/sync-webview.js && vite build && vite build --config vite.content.config.ts",
+    "build": "node scripts/sync-webview.js && vite build",
     "pack": "node scripts/pack.js",
     "type-check": "tsc --noEmit"
   },
