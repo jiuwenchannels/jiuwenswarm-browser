@@ -13,26 +13,87 @@
 
 ### WHY
 
-Researchers, financial analysts, journalists, legal professionals, and product managers
-spend a large portion of their working time in a browser — reading papers, news, SEC
-filings, social media discussions, and documentation. Their research tool is the web
-page, not a notebook or an IDE.
+#### The problem: research lives in the browser, but the agent lives in another window
 
-Accessing JiuwenSwarm's agent capabilities today requires switching to the web app,
-copying content from one or more browser tabs by hand, pasting it into the chat, and
-losing the reading context in the process. When following up on a finding, the user
-must repeat the cycle.
+The people JiuwenSwarm serves — researchers, financial analysts, journalists,
+legal professionals, and product managers — do their thinking in a browser. Their
+raw material is a web page: a paper on arXiv, an SEC filing, a PubMed abstract,
+a Twitter thread, a GitHub PR. The browser is not a convenience for them; it is
+where the work happens.
 
-The goal is to embed JiuwenSwarm directly into the browser as an ambient assistant: a
-side panel that stays open beside any page, reads the page the user is looking at
-automatically, allows several pages to be pinned into a shared research session, and
-lets the agent act on the page — highlighting, scrolling, or filling a form — without
-the user copying anything or leaving the browser.
+But JiuwenSwarm's agent does not live there. It lives in a separate web app. To
+use the agent on anything they are reading, a user must break their flow and do
+manual assembly:
 
-A secondary goal is session continuity: a session created in the browser extension must
-be immediately visible in the JiuwenSwarm web app and vice versa, so heavy follow-up
-work (skills, code review, team agents, goal tracking) can happen in the full UI without
-re-establishing context.
+- **Copy-paste as the transport layer.** Select text, switch to the web app,
+  paste it, lose the surrounding context, then repeat for every additional page.
+  A question that spans three tabs becomes three round-trips of copying.
+- **No memory of the page.** The agent never sees the page the user is actually
+  looking at. Context the user can see — where a figure sits, what a highlighted
+  passage says — has to be described back in prose, badly.
+- **No action on the page.** Even when the agent has a useful answer, it cannot
+  point at the page, highlight the passage it is citing, or fill the form the
+  user was filling. The answer arrives in a chat window disconnected from the
+  thing it is about.
+
+The cost is not just friction. Every copy-paste cycle is a moment a user is
+reminded that the agent is *somewhere else*, and the habit that survives is the
+one without friction. The manual path is abandoned for whatever happens to be in
+the same window — often a generic chat assistant with no real agent
+capabilities. The users most likely to adopt JiuwenSwarm are exactly the ones
+the walled garden pushes away.
+
+#### The value: an ambient assistant, not a destination
+
+The extension removes the wall between the agent and the page. It makes the
+agent ambient — present beside whatever the user is reading, aware of it, and
+able to act on it:
+
+- **Reads the page automatically.** The side panel sees the active tab without
+  the user copying a single character.
+- **Holds a research session across pages.** Several tabs can be pinned into one
+  shared session, so a question like "how do these three filings differ" is
+  answerable without manual assembly.
+- **Acts on the page.** Highlight the passage the agent cites, scroll to the
+  element it means, fill the form the user was filling. The answer lands on the
+  page, not in a disconnected chat.
+- **Keeps context into the full UI.** A session started in the browser is the
+  same session in the web app, so heavy follow-up (skills, code review, team
+  agents) continues without re-establishing anything.
+
+The "rather than not do" argument is capability reach. JiuwenSwarm already has a
+serious agent — code execution, long-term memory, multi-agent coordination. The
+browser is where the demand for it is highest and where, today, it is
+unreachable. This extension is the difference between an agent people visit and
+an agent that is already there when they need it.
+
+#### The stakes for JiuwenSwarm: why build it
+
+**The return.** The browser is the highest-frequency surface a knowledge worker
+owns. An ambient extension puts JiuwenSwarm in front of users continuously, not
+only when they decide to open the web app. Each in-browser session is a
+touchpoint that converts a one-time user into a daily one, and each pinned page
+is distribution — the agent becoming part of how someone already works.
+
+**Competitive position.** The reference tool for in-browser research today is a
+chat sidebar with no access to the page and no agent behind it. No serious agent
+platform owns the "reads the page, remembers the session, acts on the page"
+surface. That is an open seam, and it is the cheapest way for JiuwenSwarm to be
+present where the competition is a thin wrapper over a model API.
+
+**What winning looks like.** The extension succeeds when it changes behaviour,
+not when it installs: (a) retention — users run browser sessions repeatedly, not
+once; (b) reach — the browser becomes a measurable source of sessions that would
+otherwise never start; (c) follow-through — browser sessions graduate into web
+app sessions for heavy work, proving the continuity goal; (d) no regression —
+existing web app and IDE users are unaffected. If those move, the extension paid
+for itself; if none move, the wall was never the problem.
+
+#### The user, in one sentence
+
+A knowledge worker who already lives in a browser and needs JiuwenSwarm's agent
+to meet them there — reading the page, remembering the session, and acting on
+what they see — without copying, switching, or leaving the tab.
 
 ### WHEN
 
@@ -57,6 +118,7 @@ side panel. Maintains the WebSocket connection to the local JiuwenSwarm server.
 | Page context cache | `ContextCache` | Ephemeral in-memory cache of extracted `PageContext` per tab; aggregate for agent context block |
 | Tab lifecycle tracking | `TabWatcher` | Listen on `chrome.tabs.onUpdated` / `onRemoved`; trigger re-extraction on navigation |
 | Right-click context menu | `ContextMenu` | "Ask about selection", "Pin this page", "Summarize this page" |
+| Panel open + fallback | `PanelManager` | Unified side-panel opener; falls back to a focused popup window on Chromium browsers without `chrome.sidePanel` |
 | Browser-native agent tools | `ToolDispatcher` | Dispatch 8 tools on behalf of the agent when server sends a `tool_call` envelope |
 
 **Browser-native agent tools (ToolDispatcher):**
@@ -82,7 +144,8 @@ responding to background commands.
 | Capability | Component | Description |
 |---|---|---|
 | Page text extraction | `Extractor` + `PageTypeDetector` | Detect page type; route to correct adapter; truncate to 120,000 chars using head+tail strategy |
-| 9 page-type adapters | `adapters/` | GitHub, arXiv, SEC EDGAR, PubMed, Wikipedia, YouTube, Twitter/X, Hacker News, generic (Readability.js) |
+| 8 page-type adapters | `adapters/` | GitHub, arXiv, SEC EDGAR, PubMed, Wikipedia, YouTube, Twitter/X, Hacker News |
+| Generic article fallback | `Extractor` (Readability.js) | Article-like pages not matching a named adapter are extracted with Readability.js |
 | Text selection monitoring | `SelectionMonitor` | Detect and surface selected text for the "Ask about selection" shortcut |
 | Passage highlighting | `Annotator` | Apply and clear colored overlay on DOM elements cited by the agent |
 | Form field filling | `FormAssist` | Locate and fill `<input>` and `<textarea>` elements by label, placeholder, or name |
@@ -102,6 +165,7 @@ The side panel is the user's primary interaction surface.
 | Context bar with pinned-page chips | `ContextBar` | Chip per pinned page with ⚠ warning, PDF badge, and retry button |
 | Session export and import | `SessionExporter` | Download JSON (re-importable) or Markdown; import JSON; open in web app |
 | Session templates | `SessionExporter.SESSION_TEMPLATES` | Pre-built starters: Company Research, Paper Review, Due Diligence |
+| Session notes | `NoteEditor` | Freeform markdown note per session, auto-saved with debounce; included in the agent context block |
 | New session form | `index.ts` | Inline form with name, template selector, mode selector, and hint text |
 
 ---
@@ -133,9 +197,10 @@ The side panel is the user's primary interaction surface.
 | Page context cache | `background/ContextCache.ts` |
 | Tab lifecycle tracking | `background/TabWatcher.ts` |
 | Right-click context menu | `background/ContextMenu.ts` |
+| Panel open + fallback | `background/PanelManager.ts` |
 | Browser-native agent tools | `background/ToolDispatcher.ts` |
 | Page extraction + page-type detection | `content/Extractor.ts`, `content/PageTypeDetector.ts` |
-| Page-type adapters (9 total) | `content/adapters/` |
+| Page-type adapters (8 total) | `content/adapters/` |
 | Text selection monitoring | `content/SelectionMonitor.ts` |
 | Inline passage highlighting | `content/Annotator.ts` |
 | Form fill assist | `content/FormAssist.ts` |
@@ -143,6 +208,7 @@ The side panel is the user's primary interaction surface.
 | Session picker dropdown | `sidepanel/SessionPicker.ts` |
 | Context bar with chip quality signals | `sidepanel/ContextBar.ts` |
 | Session export / import / web-app | `sidepanel/SessionExporter.ts` |
+| Session notes | `sidepanel/NoteEditor.ts` |
 | Side panel wiring and native chat | `sidepanel/index.ts`, `sidepanel/sidepanel.html` |
 | Toolbar popup | `popup/` |
 | Settings page | `options/` |
