@@ -7,6 +7,7 @@
 import { createLogger } from "@shared/logger";
 import { MSG } from "@shared/constants";
 import { getPinnedPagesBySession } from "@shared/storage";
+import { initI18n, applyStaticI18n, t } from "@shared/i18n";
 
 const log = createLogger("popup");
 
@@ -17,15 +18,18 @@ const pinCount = document.getElementById("pin-count")!;
 const openPanelBtn = document.getElementById("open-panel-btn")!;
 const openOptionsBtn = document.getElementById("open-options-btn")!;
 
+initI18n();
+applyStaticI18n();
+
 // Request status from background via one-shot message
 chrome.runtime.sendMessage({ action: MSG.GET_STATUS }, async (resp) => {
   if (!resp) {
-    statusText.textContent = "Server not reachable";
+    statusText.textContent = t("popup.serverNotReachable");
     return;
   }
   const connected: boolean = resp.connected;
   statusDot.classList.toggle("connected", connected);
-  statusText.textContent = connected ? "Connected to local server" : "Not connected";
+  statusText.textContent = connected ? t("popup.connected") : t("popup.notConnected");
 
   const activeId: string | null = resp.activeSessionId;
   if (activeId) {
@@ -34,7 +38,7 @@ chrome.runtime.sendMessage({ action: MSG.GET_STATUS }, async (resp) => {
     const pages = await getPinnedPagesBySession(activeId);
     pinCount.textContent = String(pages.length);
   } else {
-    sessionName.textContent = "None";
+    sessionName.textContent = t("popup.none");
   }
 });
 

@@ -58,6 +58,21 @@ export async function getPinnedPagesBySession(
   return pages.filter((p) => p.sessionId === sessionId);
 }
 
+/** Move a pinned page one position up (dir=-1) or down (dir=+1) within its session. */
+export async function movePinnedPage(
+  sessionId: string,
+  id: string,
+  dir: -1 | 1
+): Promise<void> {
+  const pages = await loadPinnedPages();
+  const idx = pages.findIndex((p) => p.id === id);
+  const target = idx + dir;
+  if (idx < 0 || target < 0 || target >= pages.length) return;
+  if (pages[target].sessionId !== sessionId) return; // never cross sessions
+  [pages[idx], pages[target]] = [pages[target], pages[idx]];
+  await savePinnedPages(pages);
+}
+
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
@@ -75,4 +90,32 @@ export async function saveSettings(
   await chrome.storage.local.set({
     [STORAGE_KEYS.SETTINGS]: { ...current, ...settings },
   });
+}
+
+// ---------------------------------------------------------------------------
+// First-run tour
+// ---------------------------------------------------------------------------
+
+export async function hasSeenTour(): Promise<boolean> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.HAS_SEEN_TOUR);
+  return (result[STORAGE_KEYS.HAS_SEEN_TOUR] as boolean) ?? false;
+}
+
+export async function markTourSeen(): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.HAS_SEEN_TOUR]: true });
+}
+
+// ---------------------------------------------------------------------------
+// Last response cache (offline re-reading)
+// ---------------------------------------------------------------------------
+
+export async function saveLastResponse(text: string): Promise<void> {
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.LAST_RESPONSE]: { text, savedAt: new Date().toISOString() },
+  });
+}
+
+export async function loadLastResponse(): Promise<{ text: string; savedAt: string } | null> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.LAST_RESPONSE);
+  return (result[STORAGE_KEYS.LAST_RESPONSE] as { text: string; savedAt: string } | undefined) ?? null;
 }

@@ -7,40 +7,77 @@
  * - Warning icon (⚠) if extraction returned < 200 characters
  * - PDF badge if page is a PDF (requires server-side extraction)
  * - Retry button for low-quality extractions
+ * - Move (◀ ▶) buttons to reorder context priority
  * - Unpin (×) button
+ * - Click the chip to expand a preview of the extracted text
+ *
+ * Also renders a context-budget meter (chars used / MAX_CONTEXT_CHARS).
  */
 
 import { PinnedPage } from "@shared/types";
+import { MAX_CONTEXT_CHARS } from "@shared/constants";
+import { t } from "@shared/i18n";
 
 const LOW_EXTRACTION_THRESHOLD = 200; // characters
+const PREVIEW_CHARS = 1200;
 
 export class ContextBar {
   private _chipsEl: HTMLElement;
-  private _onUnpin: (id: string) => void;
+  private _meterEl: HTMLElement;
+  private _onUnpin: (page: PinnedPage) => void;
   private _onRetry: (page: PinnedPage) => void;
+  private _onMove: (id: string, dir: -1 | 1) => void;
+  private _pages: PinnedPage[] = [];
 
   constructor(
     chipsEl: HTMLElement,
-    onUnpin: (id: string) => void,
-    onRetry: (page: PinnedPage) => void
+    meterEl: HTMLElement,
+    onUnpin: (page: PinnedPage) => void,
+    onRetry: (page: PinnedPage) => void,
+    onMove: (id: string, dir: -1 | 1) => void
   ) {
     this._chipsEl = chipsEl;
+    this._meterEl = meterEl;
     this._onUnpin = onUnpin;
     this._onRetry = onRetry;
+    this._onMove = onMove;
   }
 
   update(pinnedPages: PinnedPage[]): void {
+    this._pages = pinnedPages;
     this._chipsEl.innerHTML = "";
-    for (const page of pinnedPages) {
-      this._chipsEl.appendChild(this._makeChip(page));
+    for (let i = 0; i < this._pages.length; i++) {
+      this._chipsEl.appendChild(this._makeChip(this._pages[i], i));
     }
+    this._renderMeter();
   }
 
   addPage(page: PinnedPage): void {
-    this._chipsEl.appendChild(this._makeChip(page));
+    this._pages = [...this._pages, page];
+    this.update(this._pages);
+    // Micro-interaction: flash the ring to draw attention to the new chip.
+    const chip = this._chipsEl.querySelector(`.pin-chip[data-id="${page.id}"]`);
+    if (chip) {
+      chip.classList.add("flash");
+      window.setTimeout(() => chip.classList.remove("flash"), 700);
+    }
   }
 
-  private _makeChip(page: PinnedPage): HTMLElement {
+  private _renderMeter(): void {
+    const total = this._pages.reduce((sum, p) => sum + p.context.text.length, 0);
+    if (this._pages.length === 0) {
+      this._meterEl.classList.add("hidden");
+      this._meterEl.innerHTML = "";
+      return;
+    }
+    this._meterEl.classList.remove("hidden");
+    const pct = Math.min(100, Math.round((total / MAX_CONTEXT_CHARS) * 100));
+    const kb = (total / 1000).toFixed(1);
+    const maxKb = Math.round(MAX_CONTEXT_CHARS / 1000);
+    this._meterEl.innerHTML = `<span>${kb}k / ${maxKb}k</span><span class="meter-bar"><span class="meter-fill" style="width:${pct}%"></span></span>`;
+  }
+
+  private _makeChip(page: PinnedPage, index: number): HTMLElement {
     const { context } = page;
     const charCount = context.text.length;
     const isLow = charCount < LOW_EXTRACTION_THRESHOLD;
@@ -49,10 +86,8 @@ export class ContextBar {
     const chip = document.createElement("div");
     chip.className = "pin-chip" + (isLow ? " pin-chip--warn" : "");
     chip.dataset.id = page.id;
-
-    // Tooltip: full URL + char count + type
-    const kbCount = charCount > 0 ? `${Math.round(charCount / 1000)}k chars` : "0 chars";
-    chip.title = `${context.url}\nType: ${context.pageType} · ${kbCount} extracted\nPinned: ${new Date(page.pinnedAt).toLocaleString()}`;
+    chip.tabIndex = 0;
+    chip.title = `${context.url}\nType: ${context.pageType} · ${charCount} chars\nPinned: ${new Date(page.pinnedAt).toLocaleString()}\n${t("chip.previewHint")}`;
 
     // Favicon
     const favicon = document.createElement("img");
@@ -61,6 +96,7 @@ export class ContextBar {
     favicon.height = 12;
     favicon.style.cssText = "border-radius:2px;flex-shrink:0;";
     favicon.onerror = () => { favicon.style.display = "none"; };
+    chip.appendChild(favicon);
 
     // PDF badge
     if (isPdf) {
@@ -85,35 +121,78 @@ export class ContextBar {
     const label = document.createElement("span");
     label.textContent = context.title || context.url;
     label.style.cssText = "max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
-
-    chip.appendChild(favicon);
     chip.appendChild(label);
+
+    // Action buttons
+    const actions = document.createElement("span");
+    actions.className = "chip-actions";
+
+    // Move left / right (reorder context priority)
+    if (index > 0) {
+      actions.appendChild(this._makeAction("◀", t("chip.moveEarlier"), () => {
+        chip.classList.remove("open");
+        this._onMove(page.id, -1);
+      }));
+    }
+    if (index < this._pages.length - 1) {
+      actions.appendChild(this._makeAction("▶", t("chip.moveLater"), () => {
+        chip.classList.remove("open");
+        this._onMove(page.id, 1);
+      }));
+    }
 
     // Retry button (only for low-quality or PDF)
     if (isLow || isPdf) {
-      const retryBtn = document.createElement("button");
-      retryBtn.textContent = "↻";
-      retryBtn.title = isPdf ? "Re-extract (requires server)" : "Retry extraction";
-      retryBtn.style.cssText = "background:none;border:none;color:#7c6af7;cursor:pointer;font-size:12px;padding:0;";
-      retryBtn.addEventListener("click", (ev) => {
-        ev.stopPropagation();
+      actions.appendChild(this._makeAction("↻", isPdf ? t("chip.rePdf") : t("chip.retry"), () => {
         this._onRetry(page);
-      });
-      chip.appendChild(retryBtn);
+      }));
     }
 
     // Unpin button
-    const removeBtn = document.createElement("button");
-    removeBtn.textContent = "×";
-    removeBtn.title = "Unpin";
-    removeBtn.style.cssText = "background:none;border:none;color:var(--text-dim,#7f849c);cursor:pointer;font-size:12px;padding:0;";
-    removeBtn.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      chip.remove();
-      this._onUnpin(page.id);
+    actions.appendChild(this._makeAction("×", t("chip.unpin"), () => {
+      chip.classList.remove("open");
+      this._onUnpin(page);
+    }));
+
+    chip.appendChild(actions);
+
+    // Extracted-text preview (toggled by clicking the chip)
+    const preview = document.createElement("div");
+    preview.className = "pin-preview";
+    const text = context.text.trim();
+    preview.textContent = text.length > PREVIEW_CHARS
+      ? `${text.slice(0, PREVIEW_CHARS)}…\n\n[...truncated preview…]`
+      : (text || "No extractable text.");
+    chip.appendChild(preview);
+
+    const toggle = () => chip.classList.toggle("open");
+    chip.addEventListener("click", (ev) => {
+      if ((ev.target as HTMLElement).closest("button")) return;
+      toggle();
+    });
+    chip.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        toggle();
+      }
     });
 
-    chip.appendChild(removeBtn);
     return chip;
+  }
+
+  private _makeAction(
+    glyph: string,
+    title: string,
+    onClick: () => void
+  ): HTMLButtonElement {
+    const btn = document.createElement("button");
+    btn.textContent = glyph;
+    btn.title = title;
+    btn.style.cssText = "background:none;border:none;color:var(--text-dim,#7f849c);cursor:pointer;font-size:11px;padding:0 2px;";
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      onClick();
+    });
+    return btn;
   }
 }

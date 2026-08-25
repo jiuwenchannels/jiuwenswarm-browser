@@ -78,6 +78,10 @@ The side panel is the primary interface. To keep it always accessible:
 2. Select **Pin to toolbar** (if not already pinned).
 3. Press **Ctrl+Shift+J** (Mac: **⌘+Shift+J**) to open/close the panel from any tab.
 
+> **First run:** when you open the panel for the first time, a short getting-started
+> tour walks you through the pin → ask → act loop. It appears only once; replay it
+> anytime from the **⋯** menu.
+
 ---
 
 ## 6. Pack for Distribution (Optional)

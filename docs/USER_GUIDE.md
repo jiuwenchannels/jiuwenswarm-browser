@@ -41,6 +41,9 @@ Three ways to open it:
 | Toolbar icon | Click the JiuwenSwarm icon → **Open panel** |
 | Right-click menu | Right-click any page → **Summarize this page** or **Pin this page** |
 
+> **First time?** A short 3-step tour explains the core loop the first time you open
+> the panel. You can replay it anytime from the **⋯** menu → **Getting-started tour**.
+
 ### Create Your First Session
 
 1. Open the side panel.
@@ -48,6 +51,11 @@ Three ways to open it:
 3. Type a session name, or pick a **template** to auto-fill the name, mode, and starting prompt.
 4. Choose a **mode** (Research, Chat, Summarize, or Compare).
 5. Click **Create**. The session is active immediately.
+
+Your last active session is restored automatically the next time you open the panel.
+Before your first question, the empty state shows a one-line snapshot of the current
+session — its mode, title, how many pages you've pinned, and how many you've pinned this
+week — so you always know where you are.
 
 Switch sessions by clicking the session name in the header to open the session picker.
 
@@ -62,12 +70,29 @@ context. The agent will use it when answering your questions.
 
 **Methods:**
 - **Keyboard:** Press **Ctrl+Shift+P** (Mac: **Cmd+Shift+P**) on any tab.
-- **Button:** Open the side panel → click **📌 Pin page**.
+- **Button:** Open the side panel → click **📌 Pin page** (hover it to see the shortcut).
 - **Right-click:** Right-click the page → **Pin this page to research session**.
 
+> If you haven't created a session yet, pinning opens the **+ New** form first — create
+> a session, then pin. The same happens if you try to send a message with no active
+> session; a **+ Create a session** button also appears in the empty state.
+
 The pinned page appears as a chip in the context bar under the header.
+When you pin, a confirmation toast appears and the toolbar badge shows the
+number of pages pinned to the active session.
+
+- **Reorder** — use the **◀ ▶** buttons on a chip to change context priority
+  (earlier chips are sent to the agent first).
+- **Preview** — click any chip to expand a preview of the extracted text so you
+  can see exactly what the agent will read. Click again to collapse.
+- **Context budget** — the meter at the right of the context bar shows how much
+  text (e.g. `42.1k / 120k`) is currently sent to the agent.
+- **Undo unpin** — clicking **×** removes the page and shows an **Undo** toast.
+  Click **Undo** within a few seconds to restore it.
+- **Keyboard** — with a chip focused, press **← / →** to move to the previous/next chip.
+
 Hover over a chip to see the full URL, page type, and how many characters
-were extracted. Click **×** to unpin.
+were extracted.
 
 ### Extraction Quality Signals
 
@@ -125,12 +150,33 @@ Example prompt after pinning three pages:
 ### Sending Messages
 
 Type your message in the chat input at the bottom of the side panel and press
-**Enter** (or click Send).
+**Enter** (or click Send). While the agent is composing a reply, a small pulsing
+indicator appears; it's replaced by the answer as soon as the first words arrive.
+
+Before your first message, one-click **suggestion chips** appear to help you
+start — "Pin this page", "Summarize this page", and "Compare the pinned pages".
 
 The agent automatically receives:
 - Your message
 - Combined text of all pages pinned to the active session
 - Session mode (Research / Chat / Summarize / Compare)
+
+### Reading the Answers
+
+Agent replies render as **Markdown** — headings, bullet lists, inline code and
+code blocks, and links all display formatted instead of as raw text. Click any link
+in an answer to open it in a new tab.
+
+- **Copy** — grab the full answer with one click.
+- **Edit & resend** — the **✎ Edit** button on your last question loads it back into the
+  input (dropping the previous turn) so you can revise and resend.
+- **Regenerate** — the ↻ button removes the last turn and re-asks the same question.
+- **Stop** — while an answer is streaming, a red **■** button appears; click it to stop
+  generation.
+- **Sources** — each answer lists the pages it drew from as chips. Click a source chip
+  to open that page in a new tab.
+- **History** — messages are timestamped and turns are separated, so long research
+  sessions stay readable.
 
 ### Ask About Selected Text
 
@@ -165,6 +211,9 @@ The agent can interact with pages you have open, not just read them. These
 actions are triggered automatically when the agent determines they are useful —
 no separate button is needed.
 
+While the agent acts on a page, the panel shows an inline status chip (e.g.
+"⚙ Highlighting a passage on the page…") so you can see what it is doing.
+
 | Action | What happens |
 |---|---|
 | **Highlight text** | The agent highlights passages it is citing in the active tab with a colored overlay. |
@@ -188,6 +237,13 @@ highlighted text reappears — even after a browser restart.
 
 Saved highlights use a distinct color with a solid outline to distinguish them from
 transient agent highlights that are cleared at the end of a turn.
+
+### Viewing Saved Highlights
+
+Click the **🔆** button in the context bar to open the **saved-highlights panel**.
+It lists every highlight saved in the active session — the highlighted text, its URL,
+and any sticky note. Click a highlight to open that page in a new tab. The panel
+closes over an empty note so it's clear how highlights work when you're just starting.
 
 ### Sticky Notes on Highlights
 
@@ -242,6 +298,9 @@ Click the session name label in the panel header to open the session picker.
 Click any session to switch to it. The context bar updates to show that
 session's pinned pages.
 
+The picker is **keyboard-friendly**: with it open, press **↑ / ↓** to move, **Enter**
+to select, and **Esc** to close.
+
 ### Create a New Session
 
 Click **+ New** in the panel header. A form appears with:
@@ -276,6 +335,22 @@ Click **⋯** → **Import session…** and select a previously exported `.json`
 
 Click **⋯** → **Open in web app** to open the active session in the JiuwenSwarm web app in a new tab. All pinned pages and chat history are already there — sessions are shared.
 
+### Pin All Open Tabs
+
+Click **⋯** → **Pin all open tabs** to pin every tab in the current window to the active session at once (up to the session's pinned-page limit).
+
+### Search Pinned Pages
+
+Click **⋯** → **🔍 Search pinned pages** to search across every pinned page (title, URL, and extracted text) and all session notes. Type to search; results appear instantly. Click a result to open that page.
+
+### Re-read Offline
+
+The last agent answer is cached locally. If the JiuwenSwarm server is unreachable when you open the panel, the cached answer is shown with a "(cached — server offline)" label so you can still re-read your last research.
+
+### Reading Mode
+
+Click **⋯** → **📖 Reading mode** to read the active page's extracted content in a clean, distraction-free reader view inside the panel — no ads, nav, or clutter. Use **Open original** to jump to the real page, or **← Back** to return to the chat.
+
 ### Session Persistence
 
 Sessions are stored on the JiuwenSwarm server and survive browser restarts.
@@ -297,6 +372,12 @@ Open settings via the popup (**⚙ Settings**) or right-click the toolbar icon �
 | Default mode | Research | Mode for newly created sessions |
 | Auto-extract | On | Extract page context automatically when panel opens |
 | Show annotations | On | Highlight text passages cited by the agent |
+| Auto-summarize on pin | Off | Ask for a short summary each time you pin a page |
+
+The extension follows your operating system's **light/dark** color scheme
+automatically — there is no separate toggle. The entire interface (side panel,
+popup, and settings) is available in **English and Simplified Chinese**, matching
+your browser language.
 
 ---
 
@@ -307,6 +388,9 @@ Open settings via the popup (**⚙ Settings**) or right-click the toolbar icon �
 1. Ensure the JiuwenSwarm server is running.
 2. Verify the host and port in Settings match your server configuration.
 3. If the server is on a different port, update Settings → Save → wait 5 seconds.
+
+When the connection drops, the panel shows a **"Lost connection to JiuwenSwarm"**
+banner with a **Retry** button — click it to reconnect without reloading the panel.
 
 ### Page context is empty or shows a warning chip
 
@@ -353,3 +437,5 @@ its own context window limit.
 - Sessions are stored on your local JiuwenSwarm server.
 - Uninstalling the extension deletes all locally stored data (pinned page metadata
   and settings). Sessions on the server are unaffected.
+
+You can review this at any time from the side panel: **⋯** → **🔒 Privacy**.

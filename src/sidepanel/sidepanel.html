@@ -141,6 +141,25 @@
     }
     #notes-saved { opacity: 0; transition: opacity .4s; }
 
+    /* ── Annotations panel ── */
+    #annotations-panel {
+      display: none; flex-direction: column; gap: 6px;
+      padding: 8px 10px; background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+      max-height: 220px; overflow-y: auto;
+    }
+    #annotations-panel.open { display: flex; }
+    #annotations-empty { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
+    #annotations-list { display: flex; flex-direction: column; gap: 6px; }
+    .anno-item {
+      border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+      cursor: pointer; transition: border-color .15s;
+    }
+    .anno-item:hover { border-color: var(--accent); }
+    .anno-item .anno-text { font-size: 12px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .anno-item .anno-url { font-size: 10px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+    .anno-item .anno-note { font-size: 11px; color: var(--accent); margin-top: 3px; font-style: italic; }
+
     /* ── Context bar ── */
     #context-bar {
       display: flex; align-items: center; gap: 6px;
@@ -166,6 +185,25 @@
     }
     #pin-btn:hover { border-color: var(--accent); color: var(--accent); }
 
+    #context-meter {
+      margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
+      font-size: 10px; color: var(--text-dim); white-space: nowrap;
+    }
+    #context-meter .meter-bar { width: 46px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+    #context-meter .meter-fill { height: 100%; background: var(--accent); transition: width .3s; }
+    #context-meter.hidden { visibility: hidden; }
+
+    .pin-chip { position: relative; cursor: pointer; }
+    .pin-preview {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 40;
+      width: 260px; max-height: 180px; overflow: auto; padding: 8px;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.25); font-size: 11px; color: var(--text);
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .pin-chip.open .pin-preview { display: block; }
+    .pin-chip .chip-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
+
     /* ── Native chat view ── */
     #chat-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #chat-messages {
@@ -182,6 +220,11 @@
     .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
     .msg.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
     .msg.error { align-self: flex-start; background: #fdecec; border: 1px solid #f7cccc; color: #b91c1c; }
+    .tool-chip {
+      align-self: center; font-size: 11px; color: var(--text-dim);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 3px 10px; animation: msg-in .18s ease;
+    }
 
     #chat-input-row {
       display: flex; align-items: flex-end; gap: 8px;
@@ -203,7 +246,171 @@
     }
     #chat-send:hover { background: var(--accent-hover); }
     #chat-send:disabled { background: var(--border); color: var(--text-dim); cursor: default; }
+    #stop-btn {
+      width: 34px; height: 34px; border: none; border-radius: 8px;
+      background: var(--red); color: #fff; cursor: pointer; font-size: 14px; flex-shrink: 0;
+    }
+    #stop-btn:hover { filter: brightness(1.1); }
+
+    /* ── Source citations ── */
+    .msg .msg-sources {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;
+      padding-top: 8px; border-top: 1px solid var(--border);
+    }
+    .msg .msg-sources .src-chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+      padding: 3px 9px; font-size: 11px; color: var(--text); cursor: pointer;
+      max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .msg .msg-sources .src-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+    .msg .msg-ts { display: block; font-size: 10px; color: var(--text-dim); margin-top: 4px; opacity: .7; }
+    .msg.user .msg-ts { text-align: right; }
+    .msg.user .msg-edit {
+      background: none; border: 1px solid var(--border); color: var(--text-dim);
+      border-radius: 4px; padding: 1px 7px; font-size: 10px; cursor: pointer; margin-top: 4px;
+    }
+    .msg.user .msg-edit:hover { border-color: var(--accent); color: var(--accent); }
+    .msg-turn-divider { text-align: center; font-size: 10px; color: var(--text-dim); opacity: .6; margin: 2px 0; }
     #chat-hint { padding: 4px 12px 8px; font-size: 11px; color: var(--text-dim); background: var(--surface); border-top: 1px solid var(--border); }
+
+    /* ── Markdown-rendered assistant messages ── */
+    .msg.assistant p { margin: 0 0 8px; }
+    .msg.assistant p:last-child { margin-bottom: 0; }
+    .msg.assistant pre { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; overflow-x: auto; font-size: 12px; margin: 6px 0; }
+    .msg.assistant code { font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace; font-size: 12px; background: var(--border); border-radius: 3px; padding: 0 3px; }
+    .msg.assistant pre code { background: none; padding: 0; }
+    .msg.assistant strong { font-weight: 700; }
+    .msg.assistant em { font-style: italic; }
+    .msg.assistant a { color: var(--accent); text-decoration: underline; }
+    .msg.assistant ul, .msg.assistant ol { margin: 6px 0 6px 18px; }
+    .msg.assistant li { margin: 2px 0; }
+    .msg.assistant blockquote { border-left: 3px solid var(--accent); margin: 6px 0; padding: 2px 10px; color: var(--text-dim); }
+    .msg.assistant h1, .msg.assistant h2, .msg.assistant h3, .msg.assistant h4 { margin: 8px 0 4px; font-size: 14px; }
+    /* Thinking skeleton while waiting for the first token */
+    .msg.assistant.thinking { display: flex; gap: 5px; align-items: center; }
+    .sk-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-dim); animation: sk-bounce 1.2s infinite ease-in-out; }
+    .sk-dot:nth-child(2) { animation-delay: .15s; }
+    .sk-dot:nth-child(3) { animation-delay: .3s; }
+    @keyframes sk-bounce { 0%, 80%, 100% { transform: scale(.6); opacity: .5; } 40% { transform: scale(1); opacity: 1; } }
+    .msg.assistant .msg-copy {      margin-top: 8px; background: none; border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; padding: 2px 8px;
+      cursor: pointer; font-size: 11px;
+    }
+    .msg.assistant .msg-copy:hover { border-color: var(--accent); color: var(--accent); }
+    .msg.assistant .msg-copy.copied { color: var(--green); border-color: var(--green); }
+
+    /* ── Suggestion chips (empty state) ── */
+    #suggestions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+    #suggestions .sug {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 5px 12px; font-size: 12px; color: var(--text); cursor: pointer;
+      transition: border-color .15s, color .15s;
+    }
+    #suggestions .sug:hover { border-color: var(--accent); color: var(--accent); }
+    #create-session-cta {
+      margin-top: 10px; align-self: center; background: var(--accent); color: #fff;
+      border: none; border-radius: 8px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+    }
+    #create-session-cta:hover { background: var(--accent-hover); }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 16px; left: 50%; transform: translate(-50%, 20px);
+      background: rgba(25,25,25,.92); color: #fff; padding: 8px 16px;
+      border-radius: 8px; font-size: 12px; z-index: 100; opacity: 0;
+      pointer-events: none; transition: opacity .25s, transform .25s;
+      max-width: 90%; text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #toast .toast-undo {
+      background: none; border: 1px solid rgba(255,255,255,.5); color: #fff;
+      border-radius: 4px; padding: 2px 8px; margin-left: 6px; cursor: pointer; font-size: 11px;
+    }
+    #toast .toast-undo:hover { border-color: #fff; }
+
+    /* ── Connection banner ── */
+    #conn-banner {
+      display: none; align-items: center; gap: 8px; padding: 8px 10px;
+      background: #fdecec; border-bottom: 1px solid #f7cccc; color: #b91c1c;
+      font-size: 12px; flex-shrink: 0;
+    }
+    #conn-banner.show { display: flex; }
+    #conn-banner button {
+      margin-left: auto; background: var(--accent); color: #fff; border: none;
+      border-radius: 4px; padding: 3px 10px; cursor: pointer; font-size: 12px;
+    }
+    #conn-banner button:hover { background: var(--accent-hover); }
+
+    /* ── First-run tour ── */
+    #tour {
+      position: fixed; inset: 0; z-index: 200; display: none;
+      background: rgba(0,0,0,.45); align-items: center; justify-content: center; padding: 16px;
+    }
+    #tour.open { display: flex; }
+    #tour .tour-card, #privacy .tour-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px; max-width: 320px; width: 100%; text-align: center;
+    }
+    #privacy {
+      position: fixed; inset: 0; z-index: 210; display: none;
+      background: rgba(0,0,0,.45); align-items: center; justify-content: center; padding: 16px;
+    }
+    #privacy.open { display: flex; }
+    #search {
+      position: fixed; inset: 0; z-index: 220; display: none;
+      background: rgba(0,0,0,.45); align-items: center; justify-content: center; padding: 16px;
+    }
+    #search.open { display: flex; }
+    #search-results .sr-item { padding: 6px 4px; border-bottom: 1px solid var(--border); cursor: pointer; }
+    #search-results .sr-item:hover { background: var(--bg); }
+    #search-results .sr-item .sr-title { color: var(--text); font-weight: 600; }
+    #search-results .sr-item .sr-snippet { color: var(--text-dim); font-size: 11px; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ── Reading-mode overlay ── */
+    #reader { display: none; flex-direction: column; position: fixed; inset: 0; z-index: 230; background: var(--surface); }
+    #reader.open { display: flex; }
+    #reader-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    #reader-bar button { background: none; border: 1px solid var(--border); color: var(--text); border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+    #reader-bar button:hover { border-color: var(--accent); color: var(--accent); }
+    #reader-bar a { margin-left: auto; color: var(--accent); font-size: 12px; text-decoration: none; }
+    #reader-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+    #reader-loading { color: var(--text-dim); font-size: 13px; text-align: center; margin-top: 40px; }
+    #reader-article h1 { font-size: 20px; margin-bottom: 6px; color: var(--text); }
+    #reader-article .reader-meta { font-size: 11px; color: var(--text-dim); margin-bottom: 18px; }
+    #reader-article .reader-body { font-size: 14px; line-height: 1.7; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+    #reader-article .reader-body p { margin-bottom: 10px; }
+    #reader-error { color: var(--red); font-size: 13px; text-align: center; margin-top: 40px; }
+    #tour .tour-card h3 { font-size: 15px; margin-bottom: 8px; color: var(--text); }
+    #tour .tour-card p { font-size: 13px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
+    #tour .tour-nav { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    #tour .tour-nav button { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 6px; padding: 5px 12px; cursor: pointer; font-size: 12px; }
+    #tour .tour-nav .primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    #tour .tour-dots { display: flex; gap: 4px; }
+    #tour .tour-dots .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+    #tour .tour-dots .dot.active { background: var(--accent); }
+
+    /* ── Micro-interactions ── */
+    .pin-chip { transition: transform .15s ease, box-shadow .15s ease; animation: chip-in .2s ease; }
+    .pin-chip:hover { transform: translateY(-1px); }
+    .pin-chip.flash { box-shadow: 0 0 0 2px var(--accent); }
+    @keyframes chip-in { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: scale(1); } }
+    .msg { animation: msg-in .18s ease; }
+    @keyframes msg-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── Dark mode ── */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #17181c; --surface: #212226; --border: #33353d; --text: #e8e8ea;
+        --text-dim: #9a9ba3; --accent: #5b8def; --accent-hover: #6f9cf1;
+      }
+      #toast { background: rgba(232,232,234,.94); color: #17181c; }
+      #toast .toast-undo { border-color: rgba(23,24,28,.5); color: #17181c; }
+      #toast .toast-undo:hover { border-color: #17181c; }
+      #conn-banner { background: #3a2326; border-bottom-color: #5a3439; color: #f0a0a8; }
+      .msg.error { background: #3a2326; border-color: #5a3439; color: #f0a0a8; }
+    }
   </style>
 </head>
 <body>
@@ -211,19 +418,26 @@
     <div style="display:flex;align-items:center;gap:8px;">
       <span id="status-dot" class="status-dot"></span>
     </div>
-    <span id="session-label" title="Click to switch session">No session</span>
+    <span id="session-label" data-i18n="session.noSession" title="Click to switch session" data-i18n-title="session.pickerTitle">No session</span>
     <button id="more-btn" class="icon-btn" title="Export / Import / Open in web app">⋯</button>
     <button id="new-session-btn">+ New</button>
   </div>
 
   <!-- Dropdowns (position: absolute, float over content) -->
-  <div id="session-picker"></div>
-  <div id="session-actions-menu">
-    <button class="sa-item" id="sa-export-json">⬇ Export JSON</button>
-    <button class="sa-item" id="sa-export-md">⬇ Export Markdown</button>
-    <button class="sa-item" id="sa-import">⬆ Import session…</button>
+  <div id="session-picker" role="listbox" aria-label="Research sessions"></div>
+  <div id="session-actions-menu" role="menu" aria-label="Session actions">
+    <button class="sa-item" id="sa-export-json" role="menuitem" data-i18n="actions.exportJson">⬇ Export JSON</button>
+    <button class="sa-item" id="sa-export-md" role="menuitem" data-i18n="actions.exportMd">⬇ Export Markdown</button>
+    <button class="sa-item" id="sa-import" role="menuitem" data-i18n="actions.import">⬆ Import session…</button>
     <div class="sa-divider"></div>
-    <button class="sa-item" id="sa-open-web">↗ Open in web app</button>
+    <button class="sa-item" id="sa-open-web" role="menuitem" data-i18n="actions.openWeb">↗ Open in web app</button>
+    <div class="sa-divider"></div>
+    <button class="sa-item" id="sa-pin-all" role="menuitem" data-i18n="actions.pinAll">📌 Pin all open tabs</button>
+    <button class="sa-item" id="sa-search" role="menuitem" data-i18n="actions.search">🔍 Search pinned pages</button>
+    <button class="sa-item" id="sa-reader" role="menuitem" data-i18n="actions.reader">📖 Reading mode</button>
+    <div class="sa-divider"></div>
+    <button class="sa-item" id="sa-tour" role="menuitem" data-i18n="actions.tour">? Getting-started tour</button>
+    <button class="sa-item" id="sa-privacy" role="menuitem" data-i18n="actions.privacy">🔒 Privacy</button>
   </div>
 
   <!-- Hidden file input for import -->
@@ -231,47 +445,116 @@
 
   <!-- New session form (inline, appears below header) -->
   <div id="new-session-form">
-    <input id="nf-title" type="text" placeholder="Session name…" autocomplete="off" />
+    <input id="nf-title" type="text" placeholder="Session name…" data-i18n-placeholder="nf.placeholder" autocomplete="off" />
     <select id="nf-template">
-      <option value="">No template</option>
-      <option value="company-research">Company Research</option>
-      <option value="paper-review">Paper Review</option>
-      <option value="due-diligence">Due Diligence</option>
+      <option value="" data-i18n="nf.noTemplate">No template</option>
+      <option value="company-research" data-i18n="nf.company">Company Research</option>
+      <option value="paper-review" data-i18n="nf.paper">Paper Review</option>
+      <option value="due-diligence" data-i18n="nf.dueDiligence">Due Diligence</option>
     </select>
     <div id="nf-hint" class="nf-hint"></div>
     <div class="nf-actions">
-      <button id="nf-create-btn">Create</button>
-      <button id="nf-cancel-btn">Cancel</button>
+      <button id="nf-create-btn" data-i18n="nf.create">Create</button>
+      <button id="nf-cancel-btn" data-i18n="nf.cancel">Cancel</button>
     </div>
   </div>
 
   <div id="context-bar">
-    <button id="pin-btn">📌 Pin page</button>
-    <button id="notes-btn" class="icon-btn" title="Toggle session notes">📝</button>
+    <button id="pin-btn" title="Pin this page to the active session (Ctrl+Shift+P)" data-i18n-title="pin.pinTitle" data-i18n="pin.pin">📌 Pin page</button>
+    <button id="notes-btn" class="icon-btn" title="Toggle session notes" data-i18n-title="notes.toggle">📝</button>
+    <button id="annotations-btn" class="icon-btn" title="View saved highlights" data-i18n-title="annotations.toggle">🔆</button>
     <div id="pin-chips"></div>
+    <div id="context-meter" title="Extracted text sent to the agent"></div>
   </div>
 
   <!-- Session notes panel (hidden by default) -->
   <div id="notes-panel">
-    <textarea id="notes-input" placeholder="Write notes about this session… They will be included as context when you send a message."></textarea>
+    <textarea id="notes-input" placeholder="Write notes about this session… They will be included as context when you send a message." data-i18n-placeholder="notes.placeholder"></textarea>
     <div id="notes-footer">
-      <span>Notes are sent as context with every message.</span>
-      <span id="notes-saved">Saved ✓</span>
+      <span data-i18n="notes.footer">Notes are sent as context with every message.</span>
+      <span id="notes-saved" data-i18n="notes.saved">Saved ✓</span>
     </div>
   </div>
 
+  <!-- Saved highlights panel (hidden by default) -->
+  <div id="annotations-panel">
+    <div id="annotations-empty" data-i18n="annotations.empty">No saved highlights in this session yet. When the agent highlights a passage on a page, it's saved here — click any saved highlight on a page to add a note.</div>
+    <div id="annotations-list"></div>
+  </div>
+
+  <!-- Connection banner (shown when the server is unreachable) -->
+  <div id="conn-banner" role="alert">
+    <span id="conn-banner-text">Lost connection to JiuwenSwarm</span>
+    <button id="conn-retry-btn" data-i18n="conn.retry">Retry</button>
+  </div>
+
   <div id="chat-view">
-    <div id="chat-messages">
+    <div id="chat-messages" aria-live="polite">
       <div id="chat-empty">
         <div class="icon">💬</div>
-        <div>Start a conversation</div>
-        <div class="sub" id="chat-empty-sub">Waiting for server…</div>
+        <div id="chat-empty-title" data-i18n="empty.title.ready">Start a conversation</div>
+        <div class="sub" id="chat-empty-sub" data-i18n="empty.waiting">Waiting for server…</div>
+        <div id="chat-empty-stats" class="sub" style="font-size:11px;margin-top:4px;"></div>
+        <button id="create-session-cta" hidden>+ Create a session</button>
+        <div id="suggestions"></div>
       </div>
     </div>
     <div id="chat-hint"></div>
     <div id="chat-input-row">
-      <textarea id="chat-input" rows="1" placeholder="Ask JiuwenSwarm about the pages you pinned…" disabled></textarea>
-      <button id="chat-send" disabled title="Send (Enter)">↑</button>
+      <textarea id="chat-input" rows="1" placeholder="Ask JiuwenSwarm about the pages you pinned…" data-i18n-placeholder="chat.placeholder" disabled></textarea>
+      <button id="stop-btn" hidden title="Stop generating" data-i18n-title="chat.stopTitle">■</button>
+      <button id="chat-send" disabled title="Send (Enter)" data-i18n-title="chat.sendTitle">↑</button>
+    </div>
+  </div>
+
+  <!-- Toast (transient feedback) -->
+  <div id="toast"></div>
+
+  <!-- First-run tour overlay -->
+  <div id="tour">
+    <div class="tour-card" role="dialog" aria-label="Getting started">
+      <h3 id="tour-title"></h3>
+      <p id="tour-body"></p>
+      <div class="tour-nav">
+        <button id="tour-prev" aria-label="Previous step" data-i18n="tour.back">Back</button>
+        <div class="tour-dots" id="tour-dots"></div>
+        <button id="tour-next" class="primary" data-i18n="tour.next">Next</button>
+        <button id="tour-skip" aria-label="Close tour" data-i18n="tour.skip">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy disclosure modal -->
+  <div id="privacy">
+    <div class="tour-card" role="dialog" aria-labelledby="privacy-title">
+      <h3 id="privacy-title" data-i18n="privacy.title">Privacy</h3>
+      <div id="privacy-body" style="text-align:left;font-size:12px;line-height:1.6;color:var(--text-dim);margin-bottom:16px;"></div>
+      <div class="tour-nav">
+        <button id="privacy-close" class="primary" data-i18n="privacy.close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-text search modal -->
+  <div id="search">
+    <div class="tour-card" role="dialog" aria-labelledby="search-title">
+      <h3 id="search-title" data-i18n="search.title">Search pinned pages</h3>
+      <input id="search-input" type="text" placeholder="Search title, text, notes…" data-i18n-placeholder="search.placeholder" autocomplete="off" style="width:100%;margin-bottom:10px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;" />
+      <div id="search-results" style="text-align:left;max-height:200px;overflow-y:auto;font-size:12px;"></div>
+      <div class="tour-nav">
+        <button id="search-close" class="primary" data-i18n="search.close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reading-mode overlay -->
+  <div id="reader">
+    <div id="reader-bar">
+      <button id="reader-back" data-i18n="reader.back">← Back</button>
+      <a id="reader-open" target="_blank" rel="noopener" data-i18n="reader.open">Open original</a>
+    </div>
+    <div id="reader-content">
+      <div id="reader-loading" data-i18n="reader.loading">Reading page…</div>
     </div>
   </div>
 

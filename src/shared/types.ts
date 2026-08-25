@@ -77,6 +77,8 @@ export interface ExtensionSettings {
   autoExtract: boolean;
   /** Show inline annotations on pinned pages */
   showAnnotations: boolean;
+  /** Immediately ask for a short summary when a page is pinned */
+  autoSummarizeOnPin: boolean;
 }
 
 export const DEFAULT_SETTINGS: ExtensionSettings = {
@@ -84,6 +86,7 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   port: 19000,
   autoExtract: true,
   showAnnotations: true,
+  autoSummarizeOnPin: false,
 };
 
 // ---------------------------------------------------------------------------

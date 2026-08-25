@@ -1,19 +1,20 @@
 import { defineConfig } from "vite"
 import { resolve } from "path"
+import { cpSync, mkdirSync } from "fs"
 
 export default defineConfig({
   resolve: {
     alias: {
-      "@shared": resolve(__dirname, "src/shared"),
+      "@shared": resolve(import.meta.dirname, "src/shared"),
     },
   },
   build: {
     rollupOptions: {
       input: {
-        background: resolve(__dirname, "src/background/index.ts"),
-        sidepanel:  resolve(__dirname, "src/sidepanel/index.ts"),
-        popup:      resolve(__dirname, "src/popup/index.ts"),
-        options:    resolve(__dirname, "src/options/index.ts"),
+        background: resolve(import.meta.dirname, "src/background/index.ts"),
+        sidepanel:  resolve(import.meta.dirname, "src/sidepanel/index.ts"),
+        popup:      resolve(import.meta.dirname, "src/popup/index.ts"),
+        options:    resolve(import.meta.dirname, "src/options/index.ts"),
       },
       output: {
         entryFileNames: "[name]/index.js",
@@ -33,7 +34,6 @@ export default defineConfig({
     {
       name: "copy-static",
       closeBundle() {
-        const { cpSync, mkdirSync } = require("fs")
         // HTML files
         mkdirSync("dist/sidepanel", { recursive: true })
         mkdirSync("dist/popup", { recursive: true })

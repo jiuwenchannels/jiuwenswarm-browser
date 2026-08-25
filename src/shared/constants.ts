@@ -19,6 +19,8 @@ export const STORAGE_KEYS = {
   SETTINGS: "jiuwen_settings",
   ANNOTATIONS: "jiuwen_annotations",
   NOTES: "jiuwen_notes",
+  HAS_SEEN_TOUR: "jiuwen_has_seen_tour",
+  LAST_RESPONSE: "jiuwen_last_response",
 } as const;
 
 /** Maximum number of pages that can be pinned in one research session */
@@ -51,6 +53,7 @@ export const MSG = {
   SEND_AGENT: "send_agent",
   AGENT_EVENT: "agent_event",
   PIN_TAB: "pin_tab",
+  PIN_TABS: "pin_tabs",
   UNPIN_TAB: "unpin_tab",
   GET_SESSION: "get_session",
   SET_SESSION: "set_session",
@@ -61,10 +64,14 @@ export const MSG = {
   SCROLL_TO: "scroll_to",
   // background → content (annotation restoration on page load)
   RESTORE_ANNOTATIONS: "restore_annotations",
+  // sidepanel → background (one-shot; reading mode)
+  GET_ACTIVE_CONTEXT: "get_active_context",
   // content → background (user edited annotation note or deleted annotation)
   ANNOTATION_UPDATE: "annotation_update",
   ANNOTATION_REMOVE: "annotation_remove",
   // sidepanel ↔ background (session notes)
   LOAD_NOTES: "load_notes",
   SAVE_NOTES: "save_notes",
+  // sidepanel → background (force reconnect)
+  RECONNECT: "reconnect",
 } as const;

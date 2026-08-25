@@ -14,10 +14,10 @@
  */
 
 import { createLogger } from "@shared/logger";
-import { MSG, MAX_CONTEXT_CHARS, COMMANDS } from "@shared/constants";
+import { MSG, MAX_CONTEXT_CHARS, COMMANDS, MAX_PINNED_PAGES } from "@shared/constants";
 import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
 import { loadAnnotationsByUrl, updateAnnotationNote, removeAnnotation } from "@shared/annotations";
-import { PinnedPage } from "@shared/types";
+import { PinnedPage, PageContext } from "@shared/types";
 import { nanoid } from "nanoid";
 
 import { WsClient } from "./WsClient";
@@ -40,6 +40,11 @@ const sessionMgr = new SessionManager(client);
 const tabWatcher = new TabWatcher(cache);
 const contextMenu = new ContextMenu(onContextMenuAction);
 const toolDispatcher = new ToolDispatcher(client, cache, tabWatcher, sessionMgr);
+
+// Surface agent tool activity to the side panel (tool-action visibility).
+toolDispatcher.onTool = (tool) => {
+  broadcastToSidePanel({ action: "tool", tool });
+};
 
 // Push connection state to the side panel so the chat can enable/disable its
 // input live.
@@ -151,128 +156,226 @@ function broadcastToSidePanel(msg: unknown): void {
   }
 }
 
+/** Show the active session's pinned-page count on the toolbar badge. */
+async function updatePinBadge(): Promise<void> {
+  const activeId = sessionMgr.activeSessionId;
+  if (!activeId) {
+    await chrome.action.setBadgeText({ text: "" });
+    return;
+  }
+  const pages = await getPinnedPagesBySession(activeId);
+  await chrome.action.setBadgeText({ text: pages.length > 0 ? String(pages.length) : "" });
+  await chrome.action.setBadgeBackgroundColor({ color: "#2563eb" });
+}
+
+/** Extract + persist a tab as a pinned page in the session. Returns the page or null. */
+async function pinTabToSession(
+  tabId: number,
+  sessionId: string
+): Promise<PinnedPage | null> {
+  let ctx = cache.get(tabId);
+  if (!ctx) {
+    ctx = await tabWatcher.extractFromTab(tabId) ?? undefined;
+    if (ctx) cache.set(tabId, ctx);
+  }
+  if (!ctx) return null;
+  const pinned: PinnedPage = {
+    id: nanoid(),
+    tabId,
+    sessionId,
+    context: ctx,
+    note: "",
+    pinnedAt: new Date().toISOString(),
+  };
+  await addPinnedPage(pinned);
+  return pinned;
+}
+
 // ---------------------------------------------------------------------------
 // Messages from side panel / popup
 // ---------------------------------------------------------------------------
+
+type SidePanelHandler = (
+  msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+) => Promise<void> | void;
+
+/** Registry of side-panel message handlers keyed by action. */
+const sidePanelHandlers: Record<string, SidePanelHandler> = {
+  [MSG.SEND_AGENT]: handleSendAgent,
+  [MSG.PIN_TAB]: handlePinTab,
+  [MSG.PIN_TABS]: handlePinTabs,
+  [MSG.UNPIN_TAB]: handleUnpinTab,
+  [MSG.RECONNECT]: handleReconnect,
+  [MSG.LIST_SESSIONS]: handleListSessions,
+  [MSG.GET_PENDING_ACTION]: handleGetPendingAction,
+  [MSG.NEW_SESSION]: handleNewSession,
+  [MSG.SET_SESSION]: handleSetSession,
+  [MSG.GET_STATUS]: handleGetStatus,
+};
 
 async function handleSidePanelMsg(
   msg: Record<string, unknown>,
   port: chrome.runtime.Port
 ): Promise<void> {
   const action = msg.action as string;
+  const handler = sidePanelHandlers[action];
+  if (handler) await handler(msg, port);
+  else log.warn("unknown action from side panel", action);
+}
 
-  switch (action) {
-    case MSG.SEND_AGENT: {
-      const sessionId = sessionMgr.activeSessionId;
-      if (!sessionId) {
-        port.postMessage({ type: "error", payload: { message: "No active session" } });
-        return;
-      }
-      const pinnedPages = await getPinnedPagesBySession(sessionId);
-      const tabIds = pinnedPages.map((p) => p.tabId);
-      // Include a page's context so actions like "summarize this page" /
-      // "ask selection" give the agent the page content even when it is not
-      // pinned. Prefer the tab the action originated from (msg.tabId); fall
-      // back to the active tab of the last focused window.
-      const actionTabId = msg.tabId as number | undefined;
-      const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      const contextTabId = actionTabId ?? activeTab?.id;
-      if (contextTabId != null && !tabIds.includes(contextTabId)) {
-        const ctx = await tabWatcher.extractFromTab(contextTabId);
-        if (ctx) cache.set(contextTabId, ctx);
-        tabIds.push(contextTabId);
-      }
-      let context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
-      // Prepend user session notes if present so the agent has them in context
-      const notes = (msg.notes as string | undefined)?.trim();
-      if (notes) {
-        context = `[User notes]\n${notes}\n\n${context}`;
-      }
-      // The gateway builds the agent prompt from `content`/`query` only — a
-      // separate `context` param is silently ignored. Fold the page context
-      // (and notes) into `content` so the agent actually sees it.
-      const userMessage = msg.message as string;
-      const fullContent = context
-        ? `${context}\n\n---\n\n${userMessage}`
-        : userMessage;
-      client.send("chat.send", {
-        content: fullContent,
-        query: fullContent,
-        session_id: sessionId,
-      });
-      break;
-    }
-
-    case MSG.PIN_TAB: {
-      const tabId = msg.tabId as number;
-      const sessionId = sessionMgr.activeSessionId;
-      if (!sessionId) return;
-      let ctx = cache.get(tabId);
-      if (!ctx) {
-        ctx = await tabWatcher.extractFromTab(tabId) ?? undefined;
-        if (ctx) cache.set(tabId, ctx);
-      }
-      if (!ctx) {
-        port.postMessage({ action: "error", message: "Could not extract page context" });
-        return;
-      }
-      const pinned: PinnedPage = {
-        id: nanoid(),
-        tabId,
-        sessionId,
-        context: ctx,
-        note: "",
-        pinnedAt: new Date().toISOString(),
-      };
-      await addPinnedPage(pinned);
-      port.postMessage({ action: "pinned", page: pinned });
-      break;
-    }
-
-    case MSG.UNPIN_TAB: {
-      const id = msg.id as string;
-      await removePinnedPage(id);
-      break;
-    }
-
-    case MSG.LIST_SESSIONS:
-      port.postMessage({
-        action: "sessions",
-        sessions: sessionMgr.sessions,
-        activeId: sessionMgr.activeSessionId,
-      });
-      break;
-
-    case MSG.GET_PENDING_ACTION: {
-      if (_pendingAction) {
-        port.postMessage(_pendingAction);
-        _pendingAction = null;
-      }
-      break;
-    }
-
-    case MSG.NEW_SESSION: {
-      sessionMgr.createSession((msg.title as string) || "New session");
-      break;
-    }
-
-    case MSG.SET_SESSION:
-      await sessionMgr.setActiveSession(msg.sessionId as string);
-      port.postMessage({ action: "session_changed", activeId: sessionMgr.activeSessionId });
-      break;
-
-    case MSG.GET_STATUS:
-      port.postMessage({
-        action: MSG.STATUS,
-        connected: client.isConnected,
-        activeSessionId: sessionMgr.activeSessionId,
-        activeSessionTitle: sessionMgr.activeSession?.title ?? null,
-      });
-      break;
-
-    default:
-      log.warn("unknown action from side panel", action);
+async function handleSendAgent(
+  msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): Promise<void> {
+  const sessionId = sessionMgr.activeSessionId;
+  if (!sessionId) {
+    port.postMessage({ type: "error", payload: { message: "No active session" } });
+    return;
   }
+  const pinnedPages = await getPinnedPagesBySession(sessionId);
+  const tabIds = pinnedPages.map((p) => p.tabId);
+  // Include a page's context so actions like "summarize this page" /
+  // "ask selection" give the agent the page content even when it is not
+  // pinned. Prefer the tab the action originated from (msg.tabId); fall
+  // back to the active tab of the last focused window.
+  const actionTabId = msg.tabId as number | undefined;
+  const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const contextTabId = actionTabId ?? activeTab?.id;
+  if (contextTabId != null && !tabIds.includes(contextTabId)) {
+    const ctx = await tabWatcher.extractFromTab(contextTabId);
+    if (ctx) cache.set(contextTabId, ctx);
+    tabIds.push(contextTabId);
+  }
+  let context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
+  // Prepend user session notes if present so the agent has them in context
+  const notes = (msg.notes as string | undefined)?.trim();
+  if (notes) {
+    context = `[User notes]\n${notes}\n\n${context}`;
+  }
+  // The gateway builds the agent prompt from `content`/`query` only — a
+  // separate `context` param is silently ignored. Fold the page context
+  // (and notes) into `content` so the agent actually sees it.
+  const userMessage = msg.message as string;
+  const fullContent = context
+    ? `${context}\n\n---\n\n${userMessage}`
+    : userMessage;
+  client.send("chat.send", {
+    content: fullContent,
+    query: fullContent,
+    session_id: sessionId,
+  });
+}
+
+async function handlePinTab(
+  msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): Promise<void> {
+  const tabId = msg.tabId as number;
+  const sessionId = sessionMgr.activeSessionId;
+  if (!sessionId) return;
+  const existing = await getPinnedPagesBySession(sessionId);
+  if (existing.length >= MAX_PINNED_PAGES) {
+    port.postMessage({
+      action: "error",
+      message: `Session already has the maximum of ${MAX_PINNED_PAGES} pinned pages. Unpin one first.`,
+    });
+    return;
+  }
+  const pinned = await pinTabToSession(tabId, sessionId);
+  if (!pinned) {
+    port.postMessage({ action: "error", message: "Could not extract page context" });
+    return;
+  }
+  await updatePinBadge();
+  port.postMessage({ action: "pinned", page: pinned });
+}
+
+async function handlePinTabs(
+  msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): Promise<void> {
+  const tabIds = (msg.tabIds as number[]) ?? [];
+  const sessionId = sessionMgr.activeSessionId;
+  if (!sessionId || tabIds.length === 0) return;
+  const existing = await getPinnedPagesBySession(sessionId);
+  const room = MAX_PINNED_PAGES - existing.length;
+  if (room <= 0) return;
+  let added = 0;
+  for (const tabId of tabIds) {
+    if (added >= room) break;
+    const pinned = await pinTabToSession(tabId, sessionId);
+    if (pinned) {
+      added += 1;
+      port.postMessage({ action: "pinned", page: pinned });
+    }
+  }
+  if (added > 0) await updatePinBadge();
+}
+
+async function handleUnpinTab(
+  msg: Record<string, unknown>,
+  _port: chrome.runtime.Port
+): Promise<void> {
+  const id = msg.id as string;
+  await removePinnedPage(id);
+  await updatePinBadge();
+}
+
+function handleReconnect(
+  _msg: Record<string, unknown>,
+  _port: chrome.runtime.Port
+): void {
+  client.connect().catch((e) => log.error("reconnect failed", e));
+}
+
+function handleListSessions(
+  _msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): void {
+  port.postMessage({
+    action: "sessions",
+    sessions: sessionMgr.sessions,
+    activeId: sessionMgr.activeSessionId,
+  });
+}
+
+function handleGetPendingAction(
+  _msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): void {
+  if (_pendingAction) {
+    port.postMessage(_pendingAction);
+    _pendingAction = null;
+  }
+}
+
+function handleNewSession(
+  msg: Record<string, unknown>,
+  _port: chrome.runtime.Port
+): void {
+  sessionMgr.createSession((msg.title as string) || "New session");
+}
+
+async function handleSetSession(
+  msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): Promise<void> {
+  await sessionMgr.setActiveSession(msg.sessionId as string);
+  await updatePinBadge();
+  port.postMessage({ action: "session_changed", activeId: sessionMgr.activeSessionId });
+}
+
+function handleGetStatus(
+  _msg: Record<string, unknown>,
+  port: chrome.runtime.Port
+): void {
+  port.postMessage({
+    action: MSG.STATUS,
+    connected: client.isConnected,
+    activeSessionId: sessionMgr.activeSessionId,
+    activeSessionTitle: sessionMgr.activeSession?.title ?? null,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -305,8 +408,26 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     openPanel(msg.windowId as number | undefined).catch(() => {});
     return false;
   }
+  if (msg.action === MSG.GET_ACTIVE_CONTEXT) {
+    getActiveContext().then((context) => sendResponse({ ok: true, context }));
+    return true; // async response
+  }
   return false;
 });
+
+/** Extract (or return cached) context for the active tab of the focused window. */
+async function getActiveContext(): Promise<PageContext | null> {
+  const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  if (tab?.id == null) return null;
+  const cached = cache.get(tab.id);
+  if (cached) return cached;
+  const ctx = await tabWatcher.extractFromTab(tab.id);
+  if (ctx) {
+    cache.set(tab.id, ctx);
+    return ctx;
+  }
+  return null;
+}
 
 // ---------------------------------------------------------------------------
 // Keyboard commands

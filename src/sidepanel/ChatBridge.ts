@@ -59,8 +59,21 @@ export class ChatBridge {
     });
   }
 
+  pinAllTabs(): void {
+    chrome.tabs.query({ currentWindow: true }, (tabs) => {
+      const ids = tabs
+        .filter((t) => t.id != null)
+        .map((t) => t.id as number);
+      if (ids.length > 0) this._send({ action: MSG.PIN_TABS, tabIds: ids });
+    });
+  }
+
   createSession(title: string): void {
     this._send({ action: MSG.NEW_SESSION, title });
+  }
+
+  reconnect(): void {
+    this._send({ action: MSG.RECONNECT });
   }
 
   retryPin(tabId: number, oldPinId: string): void {

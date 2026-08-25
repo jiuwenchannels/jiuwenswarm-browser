@@ -69,43 +69,57 @@
       opacity: 0; transition: opacity .3s;
     }
     #status-msg.visible { opacity: 1; }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #17181c; --surface: #212226; --border: #33353d;
+        --border-strong: #4a4c55; --text: #e8e8ea; --text-secondary: #9a9ba3;
+        --accent: #5b8def; --accent-hover: #6f9cf1; --green: #4ade80;
+      }
+    }
   </style>
 </head>
 <body>
-  <h1><span>JiuwenSwarm</span> — Settings</h1>
+  <h1><span>JiuwenSwarm</span> <span data-i18n="options.titleSuffix">— Settings</span></h1>
 
   <div class="section">
-    <h2>Server connection</h2>
+    <h2 data-i18n="options.serverSection">Server connection</h2>
     <div class="row">
       <div class="field">
-        <label for="host">Host</label>
+        <label for="host" data-i18n="options.host">Host</label>
         <input id="host" type="text" value="127.0.0.1" placeholder="127.0.0.1" />
       </div>
       <div class="field" style="max-width:100px;">
-        <label for="port">Port</label>
+        <label for="port" data-i18n="options.port">Port</label>
         <input id="port" type="number" value="19000" min="1" max="65535" />
       </div>
     </div>
   </div>
 
   <div class="section">
-    <h2>Behavior</h2>
+    <h2 data-i18n="options.behavior">Behavior</h2>
     <div class="field">
       <div class="check-row">
         <input id="auto-extract" type="checkbox" checked />
-        <label for="auto-extract">Auto-extract page context when panel opens</label>
+        <label for="auto-extract" data-i18n="options.autoExtract">Auto-extract page context when panel opens</label>
       </div>
     </div>
     <div class="field">
       <div class="check-row">
         <input id="show-annotations" type="checkbox" checked />
-        <label for="show-annotations">Show inline highlights on pinned pages</label>
+        <label for="show-annotations" data-i18n="options.showAnnotations">Show inline highlights on pinned pages</label>
+      </div>
+    </div>
+    <div class="field">
+      <div class="check-row">
+        <input id="auto-summarize" type="checkbox" />
+        <label for="auto-summarize" data-i18n="options.autoSummarize">Ask for a short summary when a page is pinned</label>
       </div>
     </div>
   </div>
 
-  <button id="save-btn">Save settings</button>
-  <span id="status-msg">Saved ✓</span>
+  <button id="save-btn" data-i18n="options.save">Save settings</button>
+  <span id="status-msg" data-i18n="options.saved">Saved ✓</span>
 
   <script type="module" src="index.js"></script>
 </body>

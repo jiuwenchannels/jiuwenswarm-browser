@@ -33,6 +33,12 @@ import { SessionManager } from "./SessionManager";
 const log = createLogger("bg/tools");
 
 export class ToolDispatcher {
+  /**
+   * Optional callback fired when a tool starts executing. Used by the background
+   * to surface agent activity to the side panel (tool-action visibility).
+   */
+  onTool: ((tool: string) => void) | null = null;
+
   constructor(
     private readonly _client: WsClient,
     private readonly _cache: ContextCache,
@@ -47,6 +53,7 @@ export class ToolDispatcher {
       call_id: string;
     };
     log.debug("tool_call", tool, call_id);
+    this.onTool?.(tool);
 
     let result: unknown;
     try {

@@ -30,8 +30,12 @@ as a popup window — all features work identically.
   programmatically — without the user needing to trigger these actions manually
 - **Persistent page annotations** — agent highlights are saved to local storage and reappear on
   the next visit to the same URL; click any saved highlight to attach or edit a sticky note
+- **Saved-highlights panel** — a 🔆 button lists every highlight saved in the active session,
+  with its URL and note; click to open the page
 - **Session notes editor** — a freeform note panel in the side panel, auto-saved per session;
   notes are automatically prepended as context with every chat message
+- **Session stats** — the empty state shows your active session's mode, title, and pinned count
+  at a glance
 - **Extraction quality signals** — character count per chip, warning on low-yield pages,
   PDF badge, and a retry button for failed extractions
 - **Shared chat UI** — same `chat.html` webview used by the IDE plugin and JupyterLab extension
@@ -41,6 +45,44 @@ as a popup window — all features work identically.
 - **Settings** — configurable server host, port, default session mode, behaviour toggles
 - **Popup window fallback** — on Chromium browsers without `chrome.sidePanel` (Chinese browsers,
   future Firefox build), opens the panel in a dedicated popup window; all features unchanged
+- **Rich, readable chat** — agent answers render as Markdown (code, lists, links, headings)
+  with one-click **Copy**, **↻ Regenerate**, **✎ Edit-and-resend**, and a **Stop** button while generating
+- **Source citations** — every answer lists its **Sources** (the pinned pages); click one
+  to open it in a new tab
+- **Chat history** — messages carry timestamps and turns are separated for easy reading
+- **Batch pin** — pin all open tabs in the current window to a session at once (⋯ menu)
+- **Full-text search** — search across all pinned pages and session notes from the ⋯ menu
+- **Reading mode** — open the active page's extracted text in a clean, distraction-free
+  reader view from the ⋯ menu
+- **Offline re-reading** — the last agent answer is cached and shown when the server is
+  unreachable
+- **Auto-summarize on pin** — optional setting that requests a short summary each time you pin
+- **Activity dashboard** — the empty state shows session mode/title, pinned count, and how
+  many pages you've pinned this week
+- **In-app privacy disclosure** — a **🔒 Privacy** item in the ⋯ menu explains exactly what
+  stays local and what is sent to your server
+- **Getting-started tour** — a short first-run overlay teaches the pin → ask → act loop;
+  replayable anytime from the ⋯ menu
+- **Never dead-ends** — with no session, an inline **+ Create a session** button appears;
+  pinning or asking when no session exists opens the form instead of failing silently
+- **Suggestions before you type** — one-click chips ("Pin this page", "Summarize this page",
+  "Compare the pinned pages") fill the gap before the first question
+- **Pin feedback** — a toast and a toolbar badge (pinned-count) confirm every pin, and a
+  toolbar badge tracks the active session's pinned pages
+- **Undo on unpin** — unpinning a page shows an **Undo** toast, so it's easy to take back
+- **Reorder pinned pages** — ◀ ▶ buttons on each chip set context priority (order matters)
+- **"What's in my context"** — click any pinned chip to preview its extracted text, and a
+  context-budget meter shows how much text is sent to the agent
+- **Agent action visibility** — when the agent highlights, scrolls, fills a form or takes a
+  screenshot, an inline status chip tells you what it's doing on the page
+- **Connection recovery** — a banner with a Retry button appears when the server is
+  unreachable, and errors are reworded in plain language
+- **Dark mode** — follows your OS color scheme across the panel, popup, and settings
+- **Thinking indicator** — a pulsing skeleton shows while the agent composes a reply
+- **Keyboard-first** — the session picker and pinned-page chips are navigable with the
+  arrow keys
+- **Localized** — the full interface is available in English and Simplified Chinese
+  (auto-detected from your browser)
 
 ---
 
@@ -64,6 +106,16 @@ npm run build
 Then load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 
 See [docs/INSTALLATION.md](docs/INSTALLATION.md) for the full walkthrough.
+
+## Development
+
+```bash
+npm run dev          # watch mode build
+npm run type-check   # TypeScript type-check
+npm run lint         # ESLint
+npm run test         # unit tests (Vitest)
+npm run build        # production build
+```
 
 ---
 

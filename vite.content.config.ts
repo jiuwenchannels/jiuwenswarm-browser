@@ -12,13 +12,13 @@ import { resolve } from "path"
 export default defineConfig({
   resolve: {
     alias: {
-      "@shared": resolve(__dirname, "src/shared"),
+      "@shared": resolve(import.meta.dirname, "src/shared"),
     },
   },
   build: {
     rollupOptions: {
       input: {
-        content: resolve(__dirname, "src/content/index.ts"),
+        content: resolve(import.meta.dirname, "src/content/index.ts"),
       },
       output: {
         entryFileNames: "content/index.js",
