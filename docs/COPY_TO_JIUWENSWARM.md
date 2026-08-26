@@ -70,12 +70,14 @@ extension itself is loaded from its built `dist/` / zip and needs no server.
 | `src/` (background, content, sidepanel, shared, popup, options) | `channels/browser/frontend/src/` | keep; `@shared/*` aliases resolve inside the package |
 | `tests/` | `channels/browser/frontend/tests/` (Vitest) | keep; or move to `tests/unit_tests/browser/frontend/` to match monorepo convention |
 | `.github/` (CI) | `channels/browser/frontend/.github/` | keep, or fold into repo CI |
-| `README.md` | `docs/en/browser-extension/` + `docs/zh/browser-extension/` | rename + split bilingual |
-| `docs/*.md` (USER_GUIDE, INSTALLATION, STORE_LISTING, ROADMAP) | `docs/en/browser-extension/` / `docs/zh/browser-extension/` | rename with `browser-extension-` prefix; translate |
+| `README.md` (overview) | `docs/en/browser-extension/BrowserExtension.md` + `docs/zh/browser-extension/浏览器扩展.md` | already named to match |
+| `USER_GUIDE.md` | `docs/en/browser-extension/BrowserExtensionGuide.md` + `docs/zh/browser-extension/浏览器扩展指南.md` | already named to match |
+| `INSTALLATION.md` | `docs/en/browser-extension/BrowserExtensionInstall.md` + `docs/zh/browser-extension/浏览器扩展安装.md` | already named to match |
 | `jiuwenswarm-browser-0.1.0.zip` | release artifact (not source) | rebuilt from CI, not committed |
 
 > **Not copied (internal working/design docs):** `CHANNEL_INTEGRATION.md` (integration
-> study), `COPY_TO_JIUWENSWARM.md` (this migration plan), `SIG.md`, `RAT.md`. These are
+> study), `COPY_TO_JIUWENSWARM.md` (this migration plan), `SIG.md`, `RAT.md`,
+> `ROADMAP.md` (project planning), `STORE_LISTING.md` (store listing copy). These are
 > migration/design artifacts for this repo only and are not product docs.
 
 ---
@@ -132,9 +134,12 @@ A thorough pass over `docs/` in the JiuwenSwarm repo surfaced the following.
 
 ### 6.2 Which extension docs are relevant there
 
-- Relevant to ship: **USER_GUIDE, INSTALLATION, STORE_LISTING, ROADMAP, README**.
-- **Not relevant (do not copy):** `CHANNEL_INTEGRATION.md`, `COPY_TO_JIUWENSWARM.md`
-  (migration working docs), and `SIG.md` / `RAT.md` (design docs).
+- Relevant to ship: **BrowserExtension.md (README), BrowserExtensionGuide.md
+  (USER_GUIDE), BrowserExtensionInstall.md (INSTALLATION)** (+ their zh counterparts),
+  under `docs/{en,zh}/browser-extension/`.
+- **Not relevant (do not copy):** `ROADMAP.md` (project planning),
+  `STORE_LISTING.md` (store listing copy), `CHANNEL_INTEGRATION.md`,
+  `COPY_TO_JIUWENSWARM.md` (migration working docs), and `SIG.md` / `RAT.md` (design docs).
 
 ### 6.3 JiuwenSwarm docs to update at copy time
 

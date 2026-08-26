@@ -2,7 +2,7 @@
 
 Planned next steps for the JiuwenSwarm browser extension. This document covers
 what is not yet built. For what the extension currently does, see the
-[User Guide](USER_GUIDE.md).
+[User Guide](en/browser-extension/BrowserExtensionGuide.md).
 
 ---
 
