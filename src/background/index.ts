@@ -16,6 +16,7 @@ import { createLogger } from "@shared/logger";
 import { MSG, MAX_CONTEXT_CHARS, COMMANDS, MAX_PINNED_PAGES } from "@shared/constants";
 import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
 import { normalizeUrl } from "@shared/url";
+import { SidePanelRequest, SidePanelAction } from "@shared/messages";
 import { PinnedPage, PageContext } from "@shared/types";
 import { nanoid } from "nanoid";
 
@@ -118,7 +119,8 @@ chrome.runtime.onConnect.addListener((port) => {
   }
 
   port.onMessage.addListener((msg: Record<string, unknown>) => {
-    handleSidePanelMsg(msg, port);
+    // The port delivers untyped JSON; the registry types it as SidePanelRequest.
+    handleSidePanelMsg(msg as SidePanelRequest, port);
   });
 
   port.onDisconnect.addListener(() => {
@@ -177,12 +179,12 @@ async function pinTabToSession(
 // ---------------------------------------------------------------------------
 
 type SidePanelHandler = (
-  msg: Record<string, unknown>,
+  req: SidePanelRequest,
   port: chrome.runtime.Port
 ) => Promise<void> | void;
 
 /** Registry of side-panel message handlers keyed by action. */
-const sidePanelHandlers: Record<string, SidePanelHandler> = {
+const sidePanelHandlers: Partial<Record<SidePanelAction, SidePanelHandler>> = {
   [MSG.SEND_AGENT]: handleSendAgent,
   [MSG.PIN_TAB]: handlePinTab,
   [MSG.PIN_TABS]: handlePinTabs,
@@ -197,19 +199,20 @@ const sidePanelHandlers: Record<string, SidePanelHandler> = {
 };
 
 async function handleSidePanelMsg(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): Promise<void> {
-  const action = msg.action as string;
-  const handler = sidePanelHandlers[action];
+  const handler = sidePanelHandlers[msg.action];
   if (handler) await handler(msg, port);
-  else log.warn("unknown action from side panel", action);
+  else log.warn("unknown action from side panel", msg.action);
 }
 
 async function handleSendAgent(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): Promise<void> {
+  if (msg.action !== MSG.SEND_AGENT) return;
+  const { message, tabId } = msg;
   const sessionId = sessionMgr.activeSessionId;
   if (!sessionId) {
     port.postMessage({ type: "error", payload: { message: "No active session" } });
@@ -219,11 +222,10 @@ async function handleSendAgent(
   const tabIds = pinnedPages.map((p) => p.tabId);
   // Include a page's context so actions like "summarize this page" /
   // "ask selection" give the agent the page content even when it is not
-  // pinned. Prefer the tab the action originated from (msg.tabId); fall
+  // pinned. Prefer the tab the action originated from (tabId); fall
   // back to the active tab of the last focused window.
-  const actionTabId = msg.tabId as number | undefined;
   const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  const contextTabId = actionTabId ?? activeTab?.id;
+  const contextTabId = tabId ?? activeTab?.id;
   if (contextTabId != null && !tabIds.includes(contextTabId)) {
     const ctx = await tabWatcher.extractFromTab(contextTabId);
     log.debug("handleSendAgent: extracted tab", contextTabId, "ctx?", !!ctx);
@@ -235,10 +237,9 @@ async function handleSendAgent(
   // The gateway builds the agent prompt from `content`/`query` only — a
   // separate `context` param is silently ignored. Fold the page context
   // into `content` so the agent actually sees it.
-  const userMessage = msg.message as string;
   const fullContent = context
-    ? `${context}\n\n---\n\n${userMessage}`
-    : userMessage;
+    ? `${context}\n\n---\n\n${message}`
+    : message;
   client.send("chat.send", {
     content: fullContent,
     query: fullContent,
@@ -247,10 +248,11 @@ async function handleSendAgent(
 }
 
 async function handlePinTab(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): Promise<void> {
-  const tabId = msg.tabId as number;
+  if (msg.action !== MSG.PIN_TAB) return;
+  const { tabId } = msg;
   const sessionId = sessionMgr.activeSessionId;
   if (!sessionId) return;
   const existing = await getPinnedPagesBySession(sessionId);
@@ -271,10 +273,11 @@ async function handlePinTab(
 }
 
 async function handlePinTabs(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): Promise<void> {
-  const tabIds = (msg.tabIds as number[]) ?? [];
+  if (msg.action !== MSG.PIN_TABS) return;
+  const { tabIds } = msg;
   const sessionId = sessionMgr.activeSessionId;
   if (!sessionId || tabIds.length === 0) return;
   const existing = await getPinnedPagesBySession(sessionId);
@@ -293,25 +296,27 @@ async function handlePinTabs(
 }
 
 async function handleUnpinTab(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   _port: chrome.runtime.Port
 ): Promise<void> {
-  const id = msg.id as string;
-  await removePinnedPage(id);
+  if (msg.action !== MSG.UNPIN_TAB) return;
+  await removePinnedPage(msg.id);
   await updatePinBadge();
 }
 
 function handleReconnect(
-  _msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   _port: chrome.runtime.Port
 ): void {
+  if (msg.action !== MSG.RECONNECT) return;
   client.connect().catch((e) => log.error("reconnect failed", e));
 }
 
 function handleListSessions(
-  _msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): void {
+  if (msg.action !== MSG.LIST_SESSIONS) return;
   port.postMessage({
     action: "sessions",
     sessions: sessionMgr.sessions,
@@ -320,9 +325,10 @@ function handleListSessions(
 }
 
 function handleGetPendingAction(
-  _msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): void {
+  if (msg.action !== MSG.GET_PENDING_ACTION) return;
   if (_pendingAction) {
     port.postMessage(_pendingAction);
     _pendingAction = null;
@@ -330,25 +336,28 @@ function handleGetPendingAction(
 }
 
 function handleNewSession(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   _port: chrome.runtime.Port
 ): void {
-  sessionMgr.createSession((msg.title as string) || "New session");
+  if (msg.action !== MSG.NEW_SESSION) return;
+  sessionMgr.createSession(msg.title || "New session");
 }
 
 async function handleSetSession(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): Promise<void> {
-  await sessionMgr.setActiveSession(msg.sessionId as string);
+  if (msg.action !== MSG.SET_SESSION) return;
+  await sessionMgr.setActiveSession(msg.sessionId);
   await updatePinBadge();
   port.postMessage({ action: "session_changed", activeId: sessionMgr.activeSessionId });
 }
 
 function handleGetStatus(
-  _msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   port: chrome.runtime.Port
 ): void {
+  if (msg.action !== MSG.GET_STATUS) return;
   port.postMessage({
     action: MSG.STATUS,
     connected: client.isConnected,
@@ -358,12 +367,12 @@ function handleGetStatus(
 }
 
 async function handleRenameSession(
-  msg: Record<string, unknown>,
+  msg: SidePanelRequest,
   _port: chrome.runtime.Port
 ): Promise<void> {
-  const id = msg.sessionId as string;
-  const name = (msg.name as string) ?? "";
-  if (id) await sessionMgr.renameSession(id, name);
+  if (msg.action !== MSG.RENAME_SESSION) return;
+  const { sessionId, name } = msg;
+  if (sessionId) await sessionMgr.renameSession(sessionId, name);
 }
 
 // ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ import {
 } from "@shared/storage";
 import { PinnedPage, ResearchSession, ChatEntry } from "@shared/types";
 import { MSG } from "@shared/constants";
+import { BackgroundReply } from "@shared/messages";
 import { initI18n, applyStaticI18n, t } from "@shared/i18n";
 
 import { ChatBridge } from "./ChatBridge";
@@ -157,46 +158,47 @@ const contextBar = new ContextBar(
 // ---------------------------------------------------------------------------
 
 window.addEventListener("jiuwen:bg", (ev: Event) => {
-  const msg = (ev as CustomEvent).detail as Record<string, unknown>;
+  const msg = (ev as CustomEvent).detail as BackgroundReply;
   handleBgMsg(msg);
 });
 
-function handleBgMsg(msg: Record<string, unknown>): void {
+function handleBgMsg(msg: BackgroundReply): void {
   // Background replies use msg.action ("status"/"sessions"), while raw server
   // envelopes use msg.type ("token"/"done"/"error") — accept either.
-  const action = (msg.action ?? msg.type) as string;
+  const action =
+    (msg as { action?: string }).action ?? (msg as { type?: string }).type ?? "";
 
   switch (action) {
     case MSG.STATUS: {
-      setConnected(msg.connected as boolean);
+      const m = msg as Extract<BackgroundReply, { action: "status" }>;
+      setConnected(m.connected);
       break;
     }
 
     case "token": {
-      const text = ((msg.payload as { text?: string }) ?? {}).text;
-      if (text) appendStreamText(text);
+      const m = msg as Extract<BackgroundReply, { type: "token" }>;
+      if (m.payload.text) appendStreamText(m.payload.text);
       break;
     }
 
     case "done": {
-      const text = ((msg.payload as { text?: string }) ?? {}).text;
-      endTurn(text);
+      const m = msg as Extract<BackgroundReply, { type: "done" }>;
+      endTurn(m.payload.text);
       break;
     }
 
     case "error": {
-      const message =
-        ((msg.payload as { message?: string }) ?? {}).message ??
-        (msg.message as string | undefined) ??
-        "Unknown error";
+      const m = msg as Extract<BackgroundReply, { action: "error" } | { type: "error" }>;
+      const message = "message" in m ? m.message : m.payload.message ?? "Unknown error";
       endTurn();
       renderError(humanizeError(message));
       break;
     }
 
     case "sessions": {
-      _sessions = msg.sessions as ResearchSession[];
-      const activeId = msg.activeId as string | null;
+      const m = msg as Extract<BackgroundReply, { action: "sessions" }>;
+      _sessions = m.sessions;
+      const activeId = m.activeId;
       _activeSessionId = activeId;
       picker.update(_sessions, activeId);
       if (activeId) {
@@ -207,7 +209,8 @@ function handleBgMsg(msg: Record<string, unknown>): void {
     }
 
     case "session_created": {
-      const session = msg.session as ResearchSession;
+      const m = msg as Extract<BackgroundReply, { action: "session_created" }>;
+      const session = m.session;
       _sessions = [session, ..._sessions.filter((s) => s.id !== session.id)];
       _activeSessionId = session.id;
       picker.update(_sessions, session.id);
@@ -217,7 +220,8 @@ function handleBgMsg(msg: Record<string, unknown>): void {
     }
 
     case "session_changed": {
-      const activeId = msg.activeId as string | null;
+      const m = msg as Extract<BackgroundReply, { action: "session_changed" }>;
+      const activeId = m.activeId;
       _activeSessionId = activeId;
       if (activeId) {
         loadPinnedPages(activeId);
@@ -227,16 +231,17 @@ function handleBgMsg(msg: Record<string, unknown>): void {
     }
 
     case "tool": {
-      renderToolStatus(msg.tool as string);
+      const m = msg as Extract<BackgroundReply, { action: "tool" }>;
+      renderToolStatus(m.tool);
       break;
     }
 
     case "pinned": {
-      const page = msg.page as PinnedPage;
-      contextBar.addPage(page);
+      const m = msg as Extract<BackgroundReply, { action: "pinned" }>;
+      contextBar.addPage(m.page);
       showToast(t("toast.pinned"));
       refreshSuggestions();
-      maybeAutoSummarize(page);
+      maybeAutoSummarize(m.page);
       break;
     }
 
@@ -245,27 +250,33 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       break;
     }
 
-    case "ask_selection":
-      _contextTabId = (msg.tabId as number) ?? null;
-      chatInput.value = `> "${msg.text}"\n\n`;
+    case "ask_selection": {
+      const m = msg as Extract<BackgroundReply, { action: "ask_selection" }>;
+      _contextTabId = m.tabId ?? null;
+      chatInput.value = `> "${m.text}"\n\n`;
       chatInput.dispatchEvent(new Event("input"));
       chatInput.focus();
       break;
+    }
 
-    case "summarize_tab":
-      _contextTabId = (msg.tabId as number) ?? null;
+    case "summarize_tab": {
+      const m = msg as Extract<BackgroundReply, { action: "summarize_tab" }>;
+      _contextTabId = m.tabId;
       _sendUserMessage(
         "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point."
       );
       break;
+    }
 
     case "reader":
       openReadingMode();
       break;
 
-    case "search_selection":
-      openSearch(msg.text as string);
+    case "search_selection": {
+      const m = msg as Extract<BackgroundReply, { action: "search_selection" }>;
+      openSearch(m.text);
       break;
+    }
   }
 }
 

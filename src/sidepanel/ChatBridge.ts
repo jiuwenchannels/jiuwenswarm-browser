@@ -9,6 +9,7 @@
 
 import { createLogger } from "@shared/logger";
 import { MSG } from "@shared/constants";
+import { SidePanelRequest, BackgroundReply } from "@shared/messages";
 
 const log = createLogger("sidepanel/bridge");
 
@@ -36,7 +37,7 @@ export class ChatBridge {
       return;
     }
 
-    this._port.onMessage.addListener((msg: Record<string, unknown>) => {
+    this._port.onMessage.addListener((msg: BackgroundReply) => {
       window.dispatchEvent(new CustomEvent("jiuwen:bg", { detail: msg }));
     });
 
@@ -83,7 +84,7 @@ export class ChatBridge {
       action: MSG.SEND_AGENT,
       message,
       ...(contextTabId != null ? { tabId: contextTabId } : {}),
-      sessionId: this._sessionId,
+      ...(this._sessionId ? { sessionId: this._sessionId } : {}),
     });
   }
 
@@ -121,7 +122,7 @@ export class ChatBridge {
     this._send({ action: MSG.PIN_TAB, tabId });
   }
 
-  private _send(msg: Record<string, unknown>): void {
+  private _send(msg: SidePanelRequest): void {
     if (!this._port) {
       // Reconnect
       this.connect();
