@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeUrl } from "../src/shared/annotations";
+import { normalizeUrl } from "../src/shared/url";
 
 describe("normalizeUrl", () => {
   it("strips the hash fragment", () => {

@@ -4,6 +4,14 @@
 This document covers architecture, decomposition, sequence diagrams, technical
 constraints, system impact, and external dependencies.
 
+> **Post-approval simplifications:** This architecture document reflects the originally
+> approved design. Since implementation the product was simplified — the following were
+> **removed**: persistent page annotations / sticky notes, per-session notes, session
+> **import**, session **templates**, **edit-and-resend**, **regenerate**, the
+> context-budget meter, and **Open in web app**. Agent highlights are now **transient**
+> (applied and cleared within a session). See the README and USER_GUIDE for the current
+> feature set.
+
 ---
 
 ## Feature Scope

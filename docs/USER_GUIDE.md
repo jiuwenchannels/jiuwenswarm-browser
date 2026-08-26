@@ -81,8 +81,6 @@ number of pages pinned to the active session.
   (earlier chips are sent to the agent first).
 - **Preview** — click any chip to expand a preview of the extracted text so you
   can see exactly what the agent will read. Click again to collapse.
-- **Context budget** — the meter at the right of the context bar shows how much
-  text (e.g. `42.1k / 120k`) is currently sent to the agent.
 - **Undo unpin** — clicking **×** removes the page and shows an **Undo** toast.
   Click **Undo** within a few seconds to restore it.
 - **Keyboard** — with a chip focused, press **← / →** to move to the previous/next chip.

@@ -1,5 +1,13 @@
 # Requirements Analysis — jiuwenswarm-browser
 
+> **Post-approval simplifications:** This requirements analysis reflects the originally
+> approved scope. Since implementation the product was simplified — the following were
+> **removed**: persistent page annotations / sticky notes, per-session notes, session
+> **import**, session **templates**, **edit-and-resend**, **regenerate**, the
+> context-budget meter, and **Open in web app**. Agent highlights are now **transient**
+> (applied and cleared within a session). See the README and USER_GUIDE for the current
+> feature set.
+
 ---
 
 ## Source of Demand

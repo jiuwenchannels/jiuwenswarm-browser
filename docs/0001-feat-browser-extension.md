@@ -1,5 +1,12 @@
 **[Feature]: Implement a Browser Extension to Bring the JiuwenSwarm Agent into the Browser / 实现浏览器扩展，将 JiuwenSwarm 智能体带入浏览器**
 
+> **Post-approval simplifications:** This spec reflects the originally approved design.
+> Since implementation the product was simplified — the following were **removed**:
+> persistent page annotations / sticky notes, per-session notes, session **import**,
+> session **templates**, **edit-and-resend**, **regenerate**, the context-budget meter,
+> and **Open in web app**. Agent highlights are now **transient** (applied and cleared
+> within a session). See the README and USER_GUIDE for the current feature set.
+
 EN ======      
 JiuwenSwarm's agent lives in a web app, but its users work in the browser, reading web pages and switching tabs. To use the agent on anything they are reading, users must copy-paste text out of the page, lose its context, and repeat this for every tab — and the agent can neither see the page nor act on it. This feature is a Chrome extension that brings the agent into the browser: it reads the active page, holds a research session across pinned pages, and acts on the page (highlight, fill forms, scroll), while keeping the same session in the full JiuwenSwarm UI.
 

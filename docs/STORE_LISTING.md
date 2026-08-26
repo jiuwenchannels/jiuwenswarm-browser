@@ -36,14 +36,13 @@ and answers questions across everything you pinned — no copy-pasting.
 - Pin any page (button, shortcut, or right-click) — its content becomes context.
 - Ask across all pinned pages at once: *"Compare the revenue claims in these three
   filings and flag contradictions."*
-- See exactly what you're feeding the agent: click a pinned chip to preview its text,
-  and watch a context-budget meter (e.g. `42k / 120k`).
+- See exactly what you're feeding the agent: click a pinned chip to preview its text.
 - Batch-pin all open tabs, reorder sources, and undo a pin with one click.
 
 **Read rich, cite-able answers**
 - Answers render as Markdown — headings, lists, code, and links.
 - Every answer lists its **Sources**; click one to open it.
-- Copy, regenerate, edit-and-resend, or stop a reply.
+- Copy any reply, or stop generation while it streams.
 - When the agent acts on the page (highlight, scroll, fill a form, screenshot), you
   see a status chip telling you what it's doing.
 
@@ -56,8 +55,9 @@ and answers questions across everything you pinned — no copy-pasting.
 - Full-text search across every pinned page.
 - Dark mode, full keyboard navigation, and English + Simplified Chinese.
 
-**Note:** This extension works with a **JiuwenSwarm server** running locally on your
-machine. All processing is local; nothing is sent to any external server.
+**Note:** This extension works with a **JiuwenSwarm server** (default `ws://127.0.0.1`).
+Content goes to that server; it leaves your machine only if the server is remote or its
+LLM provider is a cloud API. See the in-app **🔒 Privacy** disclosure for details.
 
 ---
 
@@ -77,14 +77,14 @@ Capture from the built extension (light and dark mode) at 1280×800.
 2. Start the JiuwenSwarm server locally.
 3. Open the side panel with **Ctrl+Shift+J**.
 4. Create a session (**+ New**), then pin 2–3 real pages (e.g. an arXiv paper and a
-   news article) so the context bar shows chips and the budget meter.
+   news article) so the context bar shows chips.
 5. Send a question that returns a Markdown answer (with a list/code) so the **Sources**
    row and formatted answer are visible.
 
 ### Shots
 
-1. **Side panel beside a pinned research page** — context bar with 2–3 chips + the
-   `42k / 120k` budget meter; a chat answer with bold/headings and the **Sources** row.
+1. **Side panel beside a pinned research page** — context bar with 2–3 chips; a chat
+   answer with bold/headings and the **Sources** row.
 2. **Pinning multiple tabs into one session** — several chips in the context bar.
 3. **Agent highlighting a cited passage** on the page, with the `⚙` tool-status chip.
 4. **Full-text search** modal (**⋯ → 🔍 Search pinned pages**) with results.

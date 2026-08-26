@@ -90,17 +90,15 @@ verified foreign-company account.
 
 | Idea | Notes |
 |---|---|
-| **Offline mode** | Cache last agent response for re-reading without server |
-| **Reading mode overlay** | Render Readability output in a clean overlay (like Reader Mode) with chat attached |
-| **Batch pin** | Pin all open tabs in the current window to a session at once |
+| **Reader overlay** | Render the extracted page (the Agent's view) in a full-page overlay with chat attached |
 | **Schedule research** | Background agent runs while away; notifies with findings |
 | **Databricks / Colab adapter** | Detect notebook-like environments, extract cell outputs |
-| **Auto-summarize on pin** | Immediately ask the agent for a 3-sentence summary when a page is pinned |
 | **Link graph** | Visualize connections between pinned pages based on shared topics |
 | **Voice input** | Web Speech API → text; the web app already has voice in/out via the shared chat iframe |
 | **Cron research jobs** | Schedule recurring research tasks; the web app has a cron panel; extension surfaces a simplified "monitor this topic" shortcut |
-| **Annotation sync** | Sync saved page highlights and notes across devices via the JiuwenSwarm server; annotations currently live in `chrome.storage.local` (browser-specific) |
-| **Annotation export** | Include saved annotations and sticky notes in session JSON and Markdown exports |
-| **Full-text search** | Search across all pinned pages and session notes in the side panel; highlights matching passages |
 | **Custom adapters** | Let users define domain-specific extraction rules for internal tools and intranets via a JSON config |
 | **Team sessions** | Requires a shared JiuwenSwarm server instance (multi-user deployment); multiple users pin pages to a shared session; pinned pages and chat sync in real time via server WebSocket broadcast |
+
+> Several earlier "future ideas" have since been implemented and are no longer listed:
+> offline re-reading, batch pin, auto-summarize on pin, and full-text search. Ideas that
+> referenced persistent page annotations were dropped when that feature was removed.

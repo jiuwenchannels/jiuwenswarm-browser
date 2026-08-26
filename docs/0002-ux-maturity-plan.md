@@ -39,8 +39,6 @@ A sense of "my research" — recent activity, resume-by-importance, cross-sessio
 
 ## 3. Cross-device & team features
 
-- **Annotation sync** — sync page highlights and notes across devices via the server
-  (currently `chrome.storage.local`, browser-specific).
 - **Team sessions** — multiple users pin to a shared session; real-time sync via server
   WebSocket broadcast.
 - **Scheduled / cron research** — recurring research jobs; the web app already has a

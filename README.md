@@ -20,11 +20,8 @@ as a popup window — all features work identically.
   all extracted content as one unified context block
 - **Session unification** — sessions created in the extension appear in the JiuwenSwarm
   web app and vice versa; the server is the single source of truth
-- **Session templates** — 3 built-in starters (Company Research, Paper Review, Due Diligence)
-  that auto-fill session name, mode, and inject a structured starting prompt
-- **Session export** — export as re-importable JSON or human-readable Markdown, including the full conversation
+- **Session export** — export as JSON or human-readable Markdown, including the full conversation
 - **Rename sessions** — give any session a name you choose (⋯ → Rename session…), stored locally
-- **Open in web app** — one-click to open the active session in the JiuwenSwarm web app
 - **Browser-native agent tools** — the agent can highlight cited passages, scroll to sections,
   fill form fields, take screenshots, read specific URLs, open new tabs, and pin pages
   programmatically — without the user needing to trigger these actions manually
@@ -54,14 +51,13 @@ as a popup window — all features work identically.
   replayable anytime from the ⋯ menu
 - **Never dead-ends** — with no session, an inline **+ Create a session** button appears;
   pinning or asking when no session exists opens the form instead of failing silently
-- **Suggestions before you type** — one-click chips ("Pin this page", "Summarize this page",
-  "Compare the pinned pages") fill the gap before the first question
+- **Suggestions before you type** — one-click chips ("Summarize this page", and "Compare the
+  pinned pages" once two pages are pinned) fill the gap before the first question
 - **Pin feedback** — a toast and a toolbar badge (pinned-count) confirm every pin, and a
   toolbar badge tracks the active session's pinned pages
 - **Undo on unpin** — unpinning a page shows an **Undo** toast, so it's easy to take back
 - **Reorder pinned pages** — ◀ ▶ buttons on each chip set context priority (order matters)
-- **"What's in my context"** — click any pinned chip to preview its extracted text, and a
-  context-budget meter shows how much text is sent to the agent
+- **"What's in my context"** — click any pinned chip to preview its extracted text
 - **Agent action visibility** — when the agent highlights, scrolls, fills a form or takes a
   screenshot, an inline status chip tells you what it's doing on the page
 - **Connection recovery** — a banner with a Retry button appears when the server is
@@ -120,7 +116,7 @@ src/
 │                 YouTube / Twitter / HackerNews / generic),
 │                 SelectionMonitor, Annotator, FormAssist
 ├── sidepanel/    Side panel UI: ChatBridge, SessionPicker, ContextBar,
-│                 SessionExporter (export / templates)
+│                 SessionExporter (export)
 ├── popup/        Toolbar popup: connection status, quick actions
 ├── options/      Settings page: host/port, behaviour toggles
 └── webview/      chat.html (shared with jiuwenswarm-jupyterlab)
