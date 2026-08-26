@@ -10,7 +10,7 @@
  */
 
 import { createLogger } from "@shared/logger";
-import { InboundEnvelope } from "@shared/protocol";
+import { InboundEnvelope, makeRequest, GW_EVENT } from "@shared/protocol";
 import { loadSettings } from "@shared/storage";
 import { WS_URL } from "@shared/constants";
 
@@ -75,9 +75,9 @@ export class WsClient {
         reject(new Error(`Request '${method}' timed out`));
       }, REQUEST_TIMEOUT_MS);
       this._pending.set(id, { resolve, reject, timer });
-      this._ws.send(
-        JSON.stringify({ id, type: "req", channel_id: "browser", method, params, timestamp: Date.now() / 1000 })
-      );
+      const req = makeRequest(method, params);
+      req.id = id;
+      this._ws.send(JSON.stringify(req));
     });
   }
 
@@ -92,9 +92,9 @@ export class WsClient {
       return null;
     }
     const id = this._nextId();
-    this._ws.send(
-      JSON.stringify({ id, type: "req", channel_id: "browser", method, params, timestamp: Date.now() / 1000 })
-    );
+    const req = makeRequest(method, params);
+    req.id = id;
+    this._ws.send(JSON.stringify(req));
     return id;
   }
 
@@ -200,18 +200,18 @@ export class WsClient {
       sessionId ? { type, session_id: sessionId, payload: p } : { type, payload: p };
 
     switch (name) {
-      case "connection.ack":
+      case GW_EVENT.CONNECTION_ACK:
         return withSession("ack", payload);
-      case "chat.delta":
+      case GW_EVENT.CHAT_DELTA:
         return withSession("token", { text: payload.text ?? payload.content ?? "" });
-      case "chat.final":
+      case GW_EVENT.CHAT_FINAL:
         return withSession("done", { text: payload.content ?? payload.text ?? "" });
-      case "chat.error":
+      case GW_EVENT.CHAT_ERROR:
         return withSession("error", {
           message: (payload.message as string) || (payload.error as string) || "Unknown error",
           code: (payload.code as string) || "",
         });
-      case "chat.tool_call": {
+      case GW_EVENT.CHAT_TOOL_CALL: {
         const tc = (payload.tool_call as Record<string, unknown>) || {};
         return withSession("tool_call", {
           tool: (tc.name as string) || "",
@@ -219,7 +219,7 @@ export class WsClient {
           call_id: (tc.id as string) || (payload.request_id as string) || "",
         });
       }
-      case "pong":
+      case GW_EVENT.PONG:
         return withSession("pong", payload);
       default:
         // Other events (chat.reasoning, chat.tool_update, history.*, team.* …)

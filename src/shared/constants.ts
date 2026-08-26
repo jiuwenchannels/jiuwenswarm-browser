@@ -4,8 +4,18 @@ export const DEFAULT_HOST = "127.0.0.1";
 export const DEFAULT_PORT = 19000;
 export const CHANNEL_ID = "browser";
 
+/**
+ * Gateway channel identity (mirrors jiuwenswarm `RoutingKey.app_id`).
+ *
+ * Keep at "default" so sessions stay shareable with the web channel (the server
+ * scopes session sharing by channel_id + app_id + user_id). When integrating the
+ * extension as a first-class channel, flip this to "browser" — the gateway reads
+ * it from the WS handshake query and will route/scope this client distinctly.
+ */
+export const APP_ID = "default";
+
 export const WS_URL = (host = DEFAULT_HOST, port = DEFAULT_PORT): string =>
-  `ws://${host}:${port}/ws`;
+  `ws://${host}:${port}/ws?app_id=${APP_ID}`;
 
 /**
  * chrome.storage.local keys.

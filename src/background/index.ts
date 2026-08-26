@@ -18,6 +18,7 @@ import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@share
 import { normalizeUrl } from "@shared/url";
 import { SidePanelRequest, SidePanelAction } from "@shared/messages";
 import { PinnedPage, PageContext } from "@shared/types";
+import { GW_METHOD } from "@shared/protocol";
 import { nanoid } from "nanoid";
 
 import { WsClient } from "./WsClient";
@@ -240,7 +241,7 @@ async function handleSendAgent(
   const fullContent = context
     ? `${context}\n\n---\n\n${message}`
     : message;
-  client.send("chat.send", {
+  client.send(GW_METHOD.CHAT_SEND, {
     content: fullContent,
     query: fullContent,
     session_id: sessionId,

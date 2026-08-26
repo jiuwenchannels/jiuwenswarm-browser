@@ -9,6 +9,7 @@
 import { createLogger } from "@shared/logger";
 import { loadActiveSessionId, saveActiveSessionId, loadSessionDisplayNames, saveSessionDisplayName } from "@shared/storage";
 import { ResearchSession } from "@shared/types";
+import { GW_METHOD } from "@shared/protocol";
 import type { WsClient } from "./WsClient";
 
 const log = createLogger("bg/sessions");
@@ -80,7 +81,7 @@ export class SessionManager {
   /** Ask the server for the current session list (session.list → res). */
   async refresh(): Promise<void> {
     try {
-      const payload = await this._client.request("session.list", { limit: 50 });
+      const payload = await this._client.request(GW_METHOD.SESSION_LIST, { limit: 50 });
       const rows = (payload.sessions as ServerSessionRow[]) || [];
       this._sessions = rows
         .filter((ss) => ss && typeof ss.session_id === "string")
@@ -119,7 +120,7 @@ export class SessionManager {
   /** Create a new session on the server and activate it. */
   async createSession(title: string): Promise<void> {
     try {
-      const payload = await this._client.request("session.create", {
+      const payload = await this._client.request(GW_METHOD.SESSION_CREATE, {
         title,
         create_token: this._randomHex(16),
       });
@@ -162,7 +163,7 @@ export class SessionManager {
       log.warn("setActiveSession: unknown id", id);
       return;
     }
-    await this._client.request("session.switch", { session_id: id }).catch(() => {});
+    await this._client.request(GW_METHOD.SESSION_SWITCH, { session_id: id }).catch(() => {});
     this._activeSessionId = id;
     await saveActiveSessionId(id);
     this._notify();

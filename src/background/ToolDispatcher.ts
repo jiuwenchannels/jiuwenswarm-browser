@@ -18,7 +18,7 @@
  */
 
 import { createLogger } from "@shared/logger";
-import { InboundEnvelope } from "@shared/protocol";
+import { InboundEnvelope, GW_METHOD } from "@shared/protocol";
 import { MSG } from "@shared/constants";
 import { addPinnedPage } from "@shared/storage";
 import { PinnedPage } from "@shared/types";
@@ -95,7 +95,7 @@ export class ToolDispatcher {
       result = { error: String(e) };
     }
 
-    this._client.send("chat.tool_result", {
+    this._client.send(GW_METHOD.CHAT_TOOL_RESULT, {
       call_id,
       result,
       ...(sessionId ? { session_id: sessionId } : {}),

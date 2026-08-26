@@ -10,6 +10,32 @@
 import { CHANNEL_ID } from "./constants";
 
 // ---------------------------------------------------------------------------
+// Gateway wire-protocol constants
+//
+// Mirror the server's `ReqMethod` (outbound request names) and `EventType`
+// (inbound event names) from `jiuwenswarm/common/schema/message.py`. Keeping
+// them here is the single source of truth for what the extension speaks, so a
+// future server-side channel adapter can reference the same names.
+// ---------------------------------------------------------------------------
+
+export const GW_METHOD = {
+  CHAT_SEND: "chat.send",
+  CHAT_TOOL_RESULT: "chat.tool_result",
+  SESSION_LIST: "session.list",
+  SESSION_CREATE: "session.create",
+  SESSION_SWITCH: "session.switch",
+} as const;
+
+export const GW_EVENT = {
+  CONNECTION_ACK: "connection.ack",
+  CHAT_DELTA: "chat.delta",
+  CHAT_FINAL: "chat.final",
+  CHAT_ERROR: "chat.error",
+  CHAT_TOOL_CALL: "chat.tool_call",
+  PONG: "pong",
+} as const;
+
+// ---------------------------------------------------------------------------
 // Outbound (browser → server)
 // ---------------------------------------------------------------------------
 
