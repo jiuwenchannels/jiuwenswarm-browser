@@ -1,8 +1,9 @@
 /**
  * Side panel entry point.
  *
- * Wires ChatBridge, SessionPicker, ContextBar, and the new session form,
- * more-menu (export / import / open-in-web-app), and session templates.
+ * Wires the shared components (ChatBridge, SessionPicker, ContextBar, NoteEditor,
+ * history, chat rendering) and the menu actions. Self-contained UI features are
+ * split into separate modules: reader, tour, privacy, search.
  */
 
 import { createLogger } from "@shared/logger";
@@ -11,14 +12,11 @@ import {
   removePinnedPage,
   addPinnedPage,
   movePinnedPage,
-  loadPinnedPages as loadAllPinnedPages,
   loadSettings,
   saveLastResponse,
   loadLastResponse,
   loadChatHistory,
   saveChatHistory,
-  hasSeenTour,
-  markTourSeen,
 } from "@shared/storage";
 import { PinnedPage, ResearchSession, ChatEntry } from "@shared/types";
 import { MSG } from "@shared/constants";
@@ -29,6 +27,10 @@ import { ChatBridge } from "./ChatBridge";
 import { SessionPicker } from "./SessionPicker";
 import { ContextBar } from "./ContextBar";
 import { renderMarkdown } from "./markdown";
+import { openReader } from "./reader";
+import { openTour, maybeShowTour } from "./tour";
+import { openPrivacy } from "./privacy";
+import { openSearch } from "./search";
 import {
   exportSessionJson,
   exportSessionMarkdown,
@@ -62,15 +64,6 @@ const connRetryBtn    = document.getElementById("conn-retry-btn")!;
 // Toast
 const toastEl         = document.getElementById("toast")!;
 
-// Tour
-const tourEl          = document.getElementById("tour")!;
-const tourTitle       = document.getElementById("tour-title")!;
-const tourBody        = document.getElementById("tour-body")!;
-const tourNext        = document.getElementById("tour-next")!;
-const tourPrev        = document.getElementById("tour-prev")!;
-const tourSkip        = document.getElementById("tour-skip")!;
-const tourDots        = document.getElementById("tour-dots")!;
-
 // Suggestions
 const suggestionsEl   = document.getElementById("suggestions")!;
 
@@ -88,22 +81,6 @@ const saSearch        = document.getElementById("sa-search")!;
 const saReader        = document.getElementById("sa-reader")!;
 const saTour          = document.getElementById("sa-tour")!;
 const saPrivacy       = document.getElementById("sa-privacy")!;
-
-// Reading-mode overlay
-const readerEl        = document.getElementById("reader")!;
-const readerBack      = document.getElementById("reader-back")!;
-const readerContent   = document.getElementById("reader-content")!;
-
-// Privacy modal
-const privacyEl       = document.getElementById("privacy")!;
-const privacyBody     = document.getElementById("privacy-body")!;
-const privacyClose    = document.getElementById("privacy-close")!;
-
-// Search modal
-const searchEl        = document.getElementById("search")!;
-const searchInput     = document.getElementById("search-input") as HTMLInputElement;
-const searchResults   = document.getElementById("search-results")!;
-const searchClose     = document.getElementById("search-close")!;
 
 // New session form
 const newSessionForm  = document.getElementById("new-session-form")!;
@@ -269,7 +246,7 @@ function handleBgMsg(msg: BackgroundReply): void {
     }
 
     case "reader":
-      openReadingMode();
+      openReader();
       break;
 
     case "search_selection": {
@@ -371,63 +348,16 @@ saPrivacy.addEventListener("click", () => {
   openPrivacy();
 });
 
-privacyClose.addEventListener("click", closePrivacy);
-
-// Reading mode
+// Agent's view (reader)
 saReader.addEventListener("click", () => {
   closeMoreMenu();
-  openReadingMode();
+  openReader();
 });
-readerBack.addEventListener("click", closeReadingMode);
-
-async function openReadingMode(): Promise<void> {
-  readerEl.classList.add("open");
-  readerContent.innerHTML = `<div id="reader-loading">${t("reader.loading")}</div>`;
-  try {
-    const resp = await chrome.runtime.sendMessage({ action: MSG.GET_ACTIVE_CONTEXT });
-    const ctx = resp?.context;
-    if (!ctx) {
-      readerContent.innerHTML = `<div id="reader-error">${t("reader.error")}</div>`;
-      return;
-    }
-    const article = document.createElement("article");    article.id = "reader-article";
-    const h1 = document.createElement("h1");
-    h1.textContent = ctx.title || ctx.url;
-    const meta = document.createElement("div");
-    meta.className = "reader-meta";
-    meta.textContent = `${ctx.url} · ${ctx.pageType}`;
-    const note = document.createElement("div");
-    note.className = "reader-note";
-    note.textContent = t("reader.note");
-    const body = document.createElement("div");
-    body.className = "reader-body";
-    body.textContent = ctx.text || "—";
-    article.appendChild(h1);
-    article.appendChild(meta);
-    article.appendChild(note);
-    article.appendChild(body);
-    readerContent.innerHTML = "";
-    readerContent.appendChild(article);
-  } catch {
-    readerContent.innerHTML = `<div id="reader-error">${t("reader.error")}</div>`;
-  }
-}
-
-function closeReadingMode(): void {
-  readerEl.classList.remove("open");
-}
 
 // Full-text search
 saSearch.addEventListener("click", () => {
   closeMoreMenu();
   openSearch();
-});
-searchClose.addEventListener("click", closeSearch);
-
-let _searchTimer: number | null = null;
-searchInput.addEventListener("input", () => {
-  if (_searchTimer != null) window.clearTimeout(_searchTimer);
-  _searchTimer = window.setTimeout(runSearch, 250);
 });
 
 // ---------------------------------------------------------------------------
@@ -1021,141 +951,13 @@ connRetryBtn.addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 // First-run tour
 // ---------------------------------------------------------------------------
-
-const TOUR_STEPS = [
-  { title: t("tour.1.title"), body: t("tour.1.body") },
-  { title: t("tour.2.title"), body: t("tour.2.body") },
-  { title: t("tour.3.title"), body: t("tour.3.body") },
-];
-
-let _tourStep = 0;
-
-function renderTourStep(): void {
-  const step = TOUR_STEPS[_tourStep];
-  tourTitle.textContent = step.title;
-  tourBody.textContent = step.body;
-  tourNext.textContent = _tourStep === TOUR_STEPS.length - 1 ? t("tour.gotit") : t("tour.next");
-  tourPrev.style.visibility = _tourStep === 0 ? "hidden" : "visible";
-  tourDots.innerHTML = TOUR_STEPS.map(
-    (_, i) => `<span class="dot${i === _tourStep ? " active" : ""}"></span>`
-  ).join("");
-}
-
-function openTour(): void {
-  _tourStep = 0;
-  renderTourStep();
-  tourEl.classList.add("open");
-}
-
-function closeTour(): void {
-  tourEl.classList.remove("open");
-}
-
-// ---------------------------------------------------------------------------
-// Privacy disclosure
+// First-run tour (replay from the ⋯ menu)
 // ---------------------------------------------------------------------------
 
-function openPrivacy(): void {
-  privacyBody.textContent = t("privacy.body");
-  privacyEl.classList.add("open");
-}
-
-function closePrivacy(): void {
-  privacyEl.classList.remove("open");
-}
-
-// ---------------------------------------------------------------------------
-// Full-text search across pinned pages
-// ---------------------------------------------------------------------------
-
-function openSearch(initialQuery?: string): void {
-  searchInput.value = initialQuery ?? "";
-  searchResults.innerHTML = "";
-  searchEl.classList.add("open");
-  searchInput.focus();
-  if (initialQuery) runSearch();
-}
-
-function closeSearch(): void {
-  searchEl.classList.remove("open");
-}
-
-async function runSearch(): Promise<void> {
-  const q = searchInput.value.trim().toLowerCase();
-  if (!q) {
-    searchResults.innerHTML = "";
-    return;
-  }
-  const results: { title: string; url: string; snippet: string }[] = [];
-
-  const pages = await loadAllPinnedPages();
-  for (const p of pages) {
-    const hay = `${p.context.title} ${p.context.url} ${p.context.text}`.toLowerCase();
-    if (hay.includes(q)) {
-      const idx = p.context.text.toLowerCase().indexOf(q);
-      const start = Math.max(0, idx - 40);
-      const snippet = p.context.text.slice(start, start + 120) + (idx < 0 ? "" : "…");
-      results.push({ title: p.context.title || p.context.url, url: p.context.url, snippet });
-    }
-  }
-
-  searchResults.innerHTML = "";
-  if (results.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "sr-item";
-    empty.textContent = t("search.noResults");
-    empty.style.cssText = "color:var(--text-dim);";
-    searchResults.appendChild(empty);
-    return;
-  }
-  for (const r of results.slice(0, 20)) {
-    const item = document.createElement("div");
-    item.className = "sr-item";
-    const title = document.createElement("div");
-    title.className = "sr-title";
-    title.textContent = r.title;
-    const snippet = document.createElement("div");
-    snippet.className = "sr-snippet";
-    snippet.textContent = r.snippet;
-    item.appendChild(title);
-    item.appendChild(snippet);
-    item.addEventListener("click", () => {
-      if (r.url) chrome.tabs.create({ url: r.url });
-    });
-    searchResults.appendChild(item);
-  }
-}
-
-tourNext.addEventListener("click", () => {
-  if (_tourStep < TOUR_STEPS.length - 1) {
-    _tourStep += 1;
-    renderTourStep();
-  } else {
-    closeTour();
-  }
-});
-tourPrev.addEventListener("click", () => {
-  if (_tourStep > 0) {
-    _tourStep -= 1;
-    renderTourStep();
-  }
-});
-tourSkip.addEventListener("click", () => {
-  markTourSeen().catch(() => {});
-  closeTour();
-});
-
-// Replay from the ⋯ menu
 saTour.addEventListener("click", () => {
   closeMoreMenu();
   openTour();
 });
-
-async function maybeShowTour(): Promise<void> {
-  if (await hasSeenTour()) return;
-  await markTourSeen();
-  openTour();
-}
 
 // ---------------------------------------------------------------------------
 // Start
