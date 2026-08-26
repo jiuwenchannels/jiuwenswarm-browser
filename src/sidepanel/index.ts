@@ -31,9 +31,6 @@ import { renderMarkdown } from "./markdown";
 import {
   exportSessionJson,
   exportSessionMarkdown,
-  importSessionJson,
-  openInWebApp,
-  getTemplate,
 } from "./SessionExporter";
 
 const log = createLogger("sidepanel");
@@ -84,15 +81,12 @@ const moreBtn         = document.getElementById("more-btn")!;
 const sessionActionsMenu = document.getElementById("session-actions-menu")!;
 const saExportJson    = document.getElementById("sa-export-json")!;
 const saExportMd      = document.getElementById("sa-export-md")!;
-const saImport        = document.getElementById("sa-import")!;
-const saOpenWeb       = document.getElementById("sa-open-web")!;
 const saRename        = document.getElementById("sa-rename")!;
 const saPinAll        = document.getElementById("sa-pin-all")!;
 const saSearch        = document.getElementById("sa-search")!;
 const saReader        = document.getElementById("sa-reader")!;
 const saTour          = document.getElementById("sa-tour")!;
 const saPrivacy       = document.getElementById("sa-privacy")!;
-const importInput     = document.getElementById("import-input") as HTMLInputElement;
 
 // Reading-mode overlay
 const readerEl        = document.getElementById("reader")!;
@@ -113,8 +107,6 @@ const searchClose     = document.getElementById("search-close")!;
 // New session form
 const newSessionForm  = document.getElementById("new-session-form")!;
 const nfTitle         = document.getElementById("nf-title") as HTMLInputElement;
-const nfTemplate      = document.getElementById("nf-template") as HTMLSelectElement;
-const nfHint          = document.getElementById("nf-hint")!;
 const nfCreateBtn     = document.getElementById("nf-create-btn")!;
 const nfCancelBtn     = document.getElementById("nf-cancel-btn")!;
 
@@ -131,10 +123,6 @@ let _activeSessionId: string | null = null;
 let _settings: Awaited<ReturnType<typeof loadSettings>> | null = null;
 let _chatHistory: ChatEntry[] = [];
 let _renderedSessionId: string | null = null;
-
-// Template whose starting prompt should be injected after the session is created.
-// Stored here because createSession is async via round-trip to background.
-let _pendingTemplateId: string | null = null;
 
 // ---------------------------------------------------------------------------
 // Components
@@ -225,17 +213,6 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       picker.update(_sessions, session.id);
       loadPinnedPages(session.id);
       renderSessionChatIfNeeded(session.id);
-
-      // If a template was pending, inject its starting prompt now
-      if (_pendingTemplateId) {
-        const tpl = getTemplate(_pendingTemplateId);
-        _pendingTemplateId = null;
-        if (tpl?.startingPrompt) {
-          chatInput.value = tpl.startingPrompt;
-          chatInput.dispatchEvent(new Event("input"));
-          chatInput.focus();
-        }
-      }
       break;
     }
 
@@ -355,35 +332,8 @@ saExportMd.addEventListener("click", async () => {
   }
 });
 
-saImport.addEventListener("click", () => {
-  closeMoreMenu();
-  importInput.value = "";
-  importInput.click();
-});
 
-importInput.addEventListener("change", async () => {
-  const file = importInput.files?.[0];
-  if (!file || !_activeSessionId) return;
-  try {
-    const count = await importSessionJson(file, _activeSessionId);
-    log.info(`imported ${count} pages`);
-    // Reload pinned pages to show the imported chips
-    await loadPinnedPages(_activeSessionId);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    log.warn("import failed:", msg);
-  }
-});
 
-saOpenWeb.addEventListener("click", async () => {
-  closeMoreMenu();
-  if (!_activeSessionId) return;
-  try {
-    await openInWebApp(_activeSessionId);
-  } catch (e) {
-    log.warn("open in web app failed", e);
-  }
-});
 
 saRename.addEventListener("click", () => {
   closeMoreMenu();
@@ -488,28 +438,8 @@ nfCancelBtn.addEventListener("click", () => {
   _resetForm();
 });
 
-// Template select: auto-fill title, show page hint
-nfTemplate.addEventListener("change", () => {
-  const tpl = getTemplate(nfTemplate.value);
-  if (tpl) {
-    nfTitle.value = tpl.defaultTitle;
-    nfHint.textContent = `Suggested pages: ${tpl.suggestedPages.join(", ")}`;
-    nfHint.classList.add("visible");
-  } else {
-    nfTitle.value = "";
-    nfHint.textContent = "";
-    nfHint.classList.remove("visible");
-  }
-});
-
 nfCreateBtn.addEventListener("click", () => {
-  const title = nfTitle.value.trim() || "Research session";
-  const templateId = nfTemplate.value || null;
-
-  // Store template so we can inject the starting prompt once the session is created
-  _pendingTemplateId = templateId;
-
-  bridge.createSession(title);
+  bridge.createSession(nfTitle.value.trim());
   newSessionForm.classList.remove("open");
   _resetForm();
 });
@@ -522,10 +452,6 @@ nfTitle.addEventListener("keydown", (e) => {
 
 function _resetForm(): void {
   nfTitle.value = "";
-  nfTemplate.value = "";
-  nfHint.textContent = "";
-  nfHint.classList.remove("visible");
-  _pendingTemplateId = null;
 }
 
 // ---------------------------------------------------------------------------

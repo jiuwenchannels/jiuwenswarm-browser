@@ -11,51 +11,8 @@
  *            inject a starting prompt into the chat after creation.
  */
 
-import { addPinnedPage, getPinnedPagesBySession, loadSettings } from "@shared/storage";
-import { PinnedPage, ResearchSession } from "@shared/types";
-
-// ---------------------------------------------------------------------------
-// Session templates
-// ---------------------------------------------------------------------------
-
-export interface SessionTemplate {
-  id: string;
-  label: string;
-  defaultTitle: string;
-  startingPrompt: string;
-  suggestedPages: string[];
-}
-
-export const SESSION_TEMPLATES: SessionTemplate[] = [
-  {
-    id: "company-research",
-    label: "Company Research",
-    defaultTitle: "Company Research",
-    startingPrompt:
-      "Pin the company website, LinkedIn profile, and recent news, then ask:\n\nSummarize this company — what they do, their funding stage, key people, and recent developments.",
-    suggestedPages: ["Company website", "LinkedIn", "Crunchbase", "Recent news"],
-  },
-  {
-    id: "paper-review",
-    label: "Paper Review",
-    defaultTitle: "Paper Review",
-    startingPrompt:
-      "Pin the paper on arXiv or PubMed, then ask:\n\nSummarize this paper — what problem it solves, the methodology, key results, and limitations.",
-    suggestedPages: ["arXiv or PubMed page", "Related papers"],
-  },
-  {
-    id: "due-diligence",
-    label: "Due Diligence",
-    defaultTitle: "Due Diligence",
-    startingPrompt:
-      "Pin the SEC filings, company investor page, and recent news, then ask:\n\nPerform due diligence — analyze financials, key risks, competitive position, and recent developments.",
-    suggestedPages: ["SEC EDGAR filing", "Company IR page", "Recent news", "Competitor pages"],
-  },
-];
-
-export function getTemplate(id: string): SessionTemplate | undefined {
-  return SESSION_TEMPLATES.find((t) => t.id === id);
-}
+import { getPinnedPagesBySession, loadChatHistory } from "@shared/storage";
+import { PinnedPage, ResearchSession, ChatEntry } from "@shared/types";
 
 // ---------------------------------------------------------------------------
 // Export — JSON
@@ -70,11 +27,13 @@ export interface ExportPackage {
     createdAt: string;
   };
   pinnedPages: PinnedPage[];
+  chatHistory: ChatEntry[];
   exportedAt: string;
 }
 
 export async function exportSessionJson(session: ResearchSession): Promise<void> {
   const pinnedPages = await getPinnedPagesBySession(session.id);
+  const chatHistory = await loadChatHistory(session.id);
   const pkg: ExportPackage = {
     version: "1",
     session: {
@@ -84,6 +43,7 @@ export async function exportSessionJson(session: ResearchSession): Promise<void>
       createdAt: session.createdAt,
     },
     pinnedPages,
+    chatHistory,
     exportedAt: new Date().toISOString(),
   };
   _download(
@@ -99,6 +59,7 @@ export async function exportSessionJson(session: ResearchSession): Promise<void>
 
 export async function exportSessionMarkdown(session: ResearchSession): Promise<void> {
   const pinnedPages = await getPinnedPagesBySession(session.id);
+  const chatHistory = await loadChatHistory(session.id);
   const lines: string[] = [
     `# Research Session: ${session.title}`,
     ``,
@@ -108,9 +69,20 @@ export async function exportSessionMarkdown(session: ResearchSession): Promise<v
     ``,
     `---`,
     ``,
-    `## Pinned Pages (${pinnedPages.length})`,
+    `## Conversation (${chatHistory.length} messages)`,
     ``,
   ];
+
+  for (const entry of chatHistory) {
+    const who = entry.role === "user" ? "**You**" : "**JiuwenSwarm**";
+    const when = new Date(entry.ts).toLocaleString();
+    lines.push(`### ${who} — ${when}`);
+    lines.push(``);
+    const quoted = entry.text.trim().replace(/\n/g, "\n\n");
+    lines.push(quoted, ``);
+  }
+
+  lines.push(`---`, ``, `## Pinned Pages (${pinnedPages.length})`, ``);
 
   for (const page of pinnedPages) {
     lines.push(`### ${page.context.title || page.context.url}`);
@@ -126,51 +98,11 @@ export async function exportSessionMarkdown(session: ResearchSession): Promise<v
     lines.push(``, `---`, ``);
   }
 
-  lines.push(`*Chat conversation history is stored on the JiuwenSwarm server.*`);
   _download(
     lines.join("\n"),
     `jiuwen-${_safeName(session.title)}.md`,
     "text/markdown",
   );
-}
-
-// ---------------------------------------------------------------------------
-// Import
-// ---------------------------------------------------------------------------
-
-/**
- * Reads a JSON export file and re-adds all pinned pages to targetSessionId.
- * Returns the number of pages imported.
- */
-export async function importSessionJson(
-  file: File,
-  targetSessionId: string,
-): Promise<number> {
-  const text = await file.text();
-  let pkg: ExportPackage;
-  try {
-    pkg = JSON.parse(text) as ExportPackage;
-  } catch {
-    throw new Error("Could not parse file — is it a valid JiuwenSwarm export?");
-  }
-  if (pkg.version !== "1" || !Array.isArray(pkg.pinnedPages)) {
-    throw new Error("Unrecognised export format (expected version 1).");
-  }
-  for (const page of pkg.pinnedPages) {
-    // Re-stamp with target session; keep all other fields intact
-    await addPinnedPage({ ...page, sessionId: targetSessionId });
-  }
-  return pkg.pinnedPages.length;
-}
-
-// ---------------------------------------------------------------------------
-// Open in web app
-// ---------------------------------------------------------------------------
-
-export async function openInWebApp(sessionId: string): Promise<void> {
-  const settings = await loadSettings();
-  const url = `http://${settings.host}:${settings.port}/#session=${sessionId}`;
-  await chrome.tabs.create({ url });
 }
 
 // ---------------------------------------------------------------------------

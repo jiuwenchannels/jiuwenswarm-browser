@@ -64,6 +64,12 @@ export function extractPageContext(): PageContext {
   }
 
   const originalLength = text.length;
+  // Fall back to the visible page text when no adapter/Readability content was
+  // found (e.g. dashboards, JS-heavy apps, or pages with no article body), so
+  // the agent still receives something rather than an empty context.
+  if (!text.trim()) {
+    text = document.body?.innerText ?? "";
+  }
   if (text.length > MAX_CONTEXT_CHARS) {
     text = truncateAtParagraphBoundary(text, MAX_CONTEXT_CHARS);
   }

@@ -22,8 +22,7 @@ as a popup window — all features work identically.
   web app and vice versa; the server is the single source of truth
 - **Session templates** — 3 built-in starters (Company Research, Paper Review, Due Diligence)
   that auto-fill session name, mode, and inject a structured starting prompt
-- **Session export and import** — export as re-importable JSON or human-readable Markdown;
-  import a JSON export to restore pinned pages into any session
+- **Session export** — export as re-importable JSON or human-readable Markdown, including the full conversation
 - **Rename sessions** — give any session a name you choose (⋯ → Rename session…), stored locally
 - **Open in web app** — one-click to open the active session in the JiuwenSwarm web app
 - **Browser-native agent tools** — the agent can highlight cited passages, scroll to sections,
@@ -121,7 +120,7 @@ src/
 │                 YouTube / Twitter / HackerNews / generic),
 │                 SelectionMonitor, Annotator, FormAssist
 ├── sidepanel/    Side panel UI: ChatBridge, SessionPicker, ContextBar,
-│                 SessionExporter (export / import / templates)
+│                 SessionExporter (export / templates)
 ├── popup/        Toolbar popup: connection status, quick actions
 ├── options/      Settings page: host/port, behaviour toggles
 └── webview/      chat.html (shared with jiuwenswarm-jupyterlab)

@@ -48,7 +48,7 @@ Three ways to open it:
 
 1. Open the side panel.
 2. Click **+ New** (top right of the panel). A small form appears below the header.
-3. Type a session name, or pick a **template** to auto-fill the name, mode, and starting prompt.
+3. Type a session name.
 4. Choose a **mode** (Research, Chat, Summarize, or Compare).
 5. Click **Create**. The session is active immediately.
 
@@ -257,35 +257,16 @@ header, the session picker, and the popup.
 
 Click **+ New** in the panel header. A form appears with:
 - A name field
-- A **template** selector — choose a pre-built starter or leave it blank
 - A **mode** selector (Research / Chat / Summarize / Compare)
-
-**Built-in templates:**
-
-| Template | Mode | What it does |
-|---|---|---|
-| **Company Research** | Research | Suggests pinning the company website, LinkedIn, Crunchbase, and news; injects a company summary prompt |
-| **Paper Review** | Summarize | Suggests pinning the arXiv or PubMed page; injects a structured methodology + results prompt |
-| **Due Diligence** | Research | Suggests SEC filings, investor page, and news; injects a financials + risk prompt |
-
-Selecting a template auto-fills the name, sets the mode, shows suggested pages to pin, and injects the starting prompt into the chat as soon as the session is created.
 
 ### Export a Session
 
 Click **⋯** in the panel header, then choose an export format:
 
-- **Export JSON** — downloads a `.json` file containing session metadata and all pinned pages. Re-importable.
-- **Export Markdown** — downloads a `.md` file with session info, page URLs, types, and a text preview of each pinned page. Useful for sharing or filing in a notes app.
+- **Export JSON** — downloads a `.json` file containing session metadata, all pinned pages, and the full conversation.
+- **Export Markdown** — downloads a `.md` file with session info, the full conversation, and a text preview of each pinned page. Useful for sharing or filing in a notes app.
 
-> Chat conversation history lives on the JiuwenSwarm server and is not included in either export.
-
-### Import a Session
-
-Click **⋯** → **Import session…** and select a previously exported `.json` file. All pinned pages from the file are added to the current active session. The session ID in the file is ignored — pages land in whatever session is active when you import.
-
-### Open in Web App
-
-Click **⋯** → **Open in web app** to open the active session in the JiuwenSwarm web app in a new tab. All pinned pages and chat history are already there — sessions are shared.
+> The conversation is exported from the extension's local chat history. It covers what has happened in this panel for that session.
 
 ### Pin All Open Tabs
 

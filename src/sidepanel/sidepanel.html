@@ -102,17 +102,6 @@
       padding: 5px 8px; font-size: 13px; outline: none;
     }
     #nf-title:focus { border-color: var(--accent); }
-    #nf-template {
-      width: 100%; background: var(--bg); color: var(--text);
-      border: 1px solid var(--border); border-radius: 4px;
-      padding: 4px 6px; font-size: 12px;
-    }
-    .nf-hint {
-      font-size: 11px; color: var(--text-dim);
-      padding: 4px 8px; background: var(--border); border-radius: 4px;
-      display: none;
-    }
-    .nf-hint.visible { display: block; }
     .nf-actions { display: flex; gap: 6px; }
     .nf-actions button {
       flex: 1; padding: 5px; border-radius: 4px; cursor: pointer;
@@ -394,9 +383,6 @@
   <div id="session-actions-menu" role="menu" aria-label="Session actions">
     <button class="sa-item" id="sa-export-json" role="menuitem" data-i18n="actions.exportJson">⬇ Export JSON</button>
     <button class="sa-item" id="sa-export-md" role="menuitem" data-i18n="actions.exportMd">⬇ Export Markdown</button>
-    <button class="sa-item" id="sa-import" role="menuitem" data-i18n="actions.import">⬆ Import session…</button>
-    <div class="sa-divider"></div>
-    <button class="sa-item" id="sa-open-web" role="menuitem" data-i18n="actions.openWeb">↗ Open in web app</button>
     <button class="sa-item" id="sa-rename" role="menuitem" data-i18n="actions.rename">✏️ Rename session…</button>
     <div class="sa-divider"></div>
     <button class="sa-item" id="sa-pin-all" role="menuitem" data-i18n="actions.pinAll">📌 Pin all open tabs</button>
@@ -407,19 +393,9 @@
     <button class="sa-item" id="sa-privacy" role="menuitem" data-i18n="actions.privacy">🔒 Privacy</button>
   </div>
 
-  <!-- Hidden file input for import -->
-  <input id="import-input" type="file" accept=".json" style="display:none" />
-
   <!-- New session form (inline, appears below header) -->
   <div id="new-session-form">
     <input id="nf-title" type="text" placeholder="Session name…" data-i18n-placeholder="nf.placeholder" autocomplete="off" />
-    <select id="nf-template">
-      <option value="" data-i18n="nf.noTemplate">No template</option>
-      <option value="company-research" data-i18n="nf.company">Company Research</option>
-      <option value="paper-review" data-i18n="nf.paper">Paper Review</option>
-      <option value="due-diligence" data-i18n="nf.dueDiligence">Due Diligence</option>
-    </select>
-    <div id="nf-hint" class="nf-hint"></div>
     <div class="nf-actions">
       <button id="nf-create-btn" data-i18n="nf.create">Create</button>
       <button id="nf-cancel-btn" data-i18n="nf.cancel">Cancel</button>
@@ -448,7 +424,7 @@
       </div>
     </div>
     <div id="chat-input-row">
-      <textarea id="chat-input" rows="1" placeholder="Ask JiuwenSwarm about the pages you pinned…" data-i18n-placeholder="chat.placeholder" disabled></textarea>
+      <textarea id="chat-input" rows="1" placeholder="Ask JiuwenSwarm about this page…" data-i18n-placeholder="chat.placeholder" disabled></textarea>
       <button id="stop-btn" hidden title="Stop generating" data-i18n-title="chat.stopTitle">■</button>
       <button id="chat-send" disabled title="Send (Enter)" data-i18n-title="chat.sendTitle">↑</button>
     </div>

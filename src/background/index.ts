@@ -227,10 +227,12 @@ async function handleSendAgent(
   const contextTabId = actionTabId ?? activeTab?.id;
   if (contextTabId != null && !tabIds.includes(contextTabId)) {
     const ctx = await tabWatcher.extractFromTab(contextTabId);
+    log.debug("handleSendAgent: extracted tab", contextTabId, "ctx?", !!ctx);
     if (ctx) cache.set(contextTabId, ctx);
     tabIds.push(contextTabId);
   }
   const context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
+  log.debug("handleSendAgent: context chars =", context.length, "tabIds =", tabIds);
   // The gateway builds the agent prompt from `content`/`query` only — a
   // separate `context` param is silently ignored. Fold the page context
   // into `content` so the agent actually sees it.
