@@ -17,8 +17,7 @@ export const STORAGE_KEYS = {
   ACTIVE_SESSION: "jiuwen_active_session",
   PINNED_PAGES: "jiuwen_pinned_pages",
   SETTINGS: "jiuwen_settings",
-  ANNOTATIONS: "jiuwen_annotations",
-  NOTES: "jiuwen_notes",
+  SESSION_NAMES: "jiuwen_session_names",
   HAS_SEEN_TOUR: "jiuwen_has_seen_tour",
   LAST_RESPONSE: "jiuwen_last_response",
   CHAT_HISTORY: "jiuwen_chat_history",
@@ -63,16 +62,10 @@ export const MSG = {
   GET_PENDING_ACTION: "get_pending_action",
   // background → content (agent tool dispatch)
   SCROLL_TO: "scroll_to",
-  // background → content (annotation restoration on page load)
-  RESTORE_ANNOTATIONS: "restore_annotations",
   // sidepanel → background (one-shot; reading mode)
   GET_ACTIVE_CONTEXT: "get_active_context",
-  // content → background (user edited annotation note or deleted annotation)
-  ANNOTATION_UPDATE: "annotation_update",
-  ANNOTATION_REMOVE: "annotation_remove",
-  // sidepanel ↔ background (session notes)
-  LOAD_NOTES: "load_notes",
-  SAVE_NOTES: "save_notes",
   // sidepanel → background (force reconnect)
   RECONNECT: "reconnect",
+  // sidepanel → background (rename a session locally)
+  RENAME_SESSION: "rename_session",
 } as const;

@@ -24,18 +24,11 @@ as a popup window — all features work identically.
   that auto-fill session name, mode, and inject a structured starting prompt
 - **Session export and import** — export as re-importable JSON or human-readable Markdown;
   import a JSON export to restore pinned pages into any session
+- **Rename sessions** — give any session a name you choose (⋯ → Rename session…), stored locally
 - **Open in web app** — one-click to open the active session in the JiuwenSwarm web app
 - **Browser-native agent tools** — the agent can highlight cited passages, scroll to sections,
   fill form fields, take screenshots, read specific URLs, open new tabs, and pin pages
   programmatically — without the user needing to trigger these actions manually
-- **Persistent page annotations** — agent highlights are saved to local storage and reappear on
-  the next visit to the same URL; click any saved highlight to attach or edit a sticky note
-- **Saved-highlights panel** — a 🔆 button lists every highlight saved in the active session,
-  with its URL and note; click to open the page
-- **Session notes editor** — a freeform note panel in the side panel, auto-saved per session;
-  notes are automatically prepended as context with every chat message
-- **Session stats** — the empty state shows your active session's mode, title, and pinned count
-  at a glance
 - **Extraction quality signals** — character count per chip, warning on low-yield pages,
   PDF badge, and a retry button for failed extractions
 - **Shared chat UI** — same `chat.html` webview used by the IDE plugin and JupyterLab extension
@@ -46,18 +39,16 @@ as a popup window — all features work identically.
 - **Popup window fallback** — on Chromium browsers without `chrome.sidePanel` (Chinese browsers,
   future Firefox build), opens the panel in a dedicated popup window; all features unchanged
 - **Rich, readable chat** — agent answers render as Markdown (code, lists, links, headings)
-  with one-click **Copy**, **↻ Regenerate**, **✎ Edit-and-resend**, and a **Stop** button while generating
+  with one-click **Copy** and a **Stop** button while generating
 - **Source citations** — every answer lists its **Sources** (the pinned pages); click one
   to open it in a new tab
 - **Chat history** — messages carry timestamps and turns are separated for easy reading
 - **Batch pin** — pin all open tabs in the current window to a session at once (⋯ menu)
-- **Full-text search** — search across all pinned pages and session notes from the ⋯ menu
+- **Full-text search** — search across all pinned pages from the ⋯ menu
 - **Agent's view** — see exactly what the agent reads: open the active page's extracted text in a clean view from the ⋯ menu or right-click menu
 - **Offline re-reading** — the last agent answer is cached and shown when the server is
   unreachable
 - **Auto-summarize on pin** — optional setting that requests a short summary each time you pin
-- **Activity dashboard** — the empty state shows session mode/title, pinned count, and how
-  many pages you've pinned this week
 - **In-app privacy disclosure** — a **🔒 Privacy** item in the ⋯ menu explains exactly what
   stays local and what is sent to your server
 - **Getting-started tour** — a short first-run overlay teaches the pin → ask → act loop;
@@ -122,8 +113,7 @@ npm run build        # production build
 
 ```
 src/
-├── shared/       Constants, types, protocol, storage, logger,
-│                 annotations (persistent highlights CRUD), notes (per-session CRUD)
+├── shared/       Constants, types, protocol, storage, logger
 ├── background/   Service worker: WsClient, SessionManager, ContextCache,
 │                 TabWatcher, ContextMenu, ToolDispatcher
 ├── content/      Injected scripts: Extractor, PageTypeDetector,
@@ -131,7 +121,6 @@ src/
 │                 YouTube / Twitter / HackerNews / generic),
 │                 SelectionMonitor, Annotator, FormAssist
 ├── sidepanel/    Side panel UI: ChatBridge, SessionPicker, ContextBar,
-│                 NoteEditor (session notes, auto-save, context injection),
 │                 SessionExporter (export / import / templates)
 ├── popup/        Toolbar popup: connection status, quick actions
 ├── options/      Settings page: host/port, behaviour toggles

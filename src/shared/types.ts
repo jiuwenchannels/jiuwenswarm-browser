@@ -36,24 +36,6 @@ export interface PinnedPage {
 }
 
 // ---------------------------------------------------------------------------
-// Annotations (persistent page highlights + sticky notes)
-// ---------------------------------------------------------------------------
-
-export interface AnnotationEntry {
-  id: string;          // nanoid
-  /** Normalized URL (no fragment, no trailing slash variation) */
-  url: string;
-  sessionId: string;
-  /** Text excerpt that was highlighted */
-  text: string;
-  /** CSS hex color, e.g. "#ffe08a" */
-  color: string;
-  /** User-written sticky note attached to this highlight */
-  note: string;
-  createdAt: string;   // ISO-8601
-}
-
-// ---------------------------------------------------------------------------
 // Research session
 // ---------------------------------------------------------------------------
 
@@ -82,8 +64,6 @@ export interface ExtensionSettings {
   port: number;
   /** Auto-extract page context when side panel opens */
   autoExtract: boolean;
-  /** Show inline annotations on pinned pages */
-  showAnnotations: boolean;
   /** Immediately ask for a short summary when a page is pinned */
   autoSummarizeOnPin: boolean;
 }
@@ -92,7 +72,6 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   host: "127.0.0.1",
   port: 19000,
   autoExtract: true,
-  showAnnotations: true,
   autoSummarizeOnPin: false,
 };
 
@@ -129,28 +108,9 @@ export interface StatusMsg {
   pinnedCount: number;
 }
 
-export interface AnnotationRestoreMsg {
-  action: "restore_annotations";
-  annotations: AnnotationEntry[];
-}
-
-export interface AnnotationUpdateMsg {
-  action: "annotation_update";
-  id: string;
-  note: string;
-}
-
-export interface AnnotationRemoveMsg {
-  action: "annotation_remove";
-  id: string;
-}
-
 export type ExtMessage =
   | PageContextMsg
   | SelectionMsg
   | HighlightMsg
   | FillFormMsg
-  | StatusMsg
-  | AnnotationRestoreMsg
-  | AnnotationUpdateMsg
-  | AnnotationRemoveMsg;
+  | StatusMsg;

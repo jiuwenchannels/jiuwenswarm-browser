@@ -142,3 +142,27 @@ export async function saveChatHistory(
   map[sessionId] = entries.slice(-MAX_HISTORY);
   await chrome.storage.local.set({ [STORAGE_KEYS.CHAT_HISTORY]: map });
 }
+
+// ---------------------------------------------------------------------------
+// Session display names (local rename override)
+// ---------------------------------------------------------------------------
+
+export async function loadSessionDisplayNames(): Promise<Record<string, string>> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.SESSION_NAMES);
+  return (result[STORAGE_KEYS.SESSION_NAMES] as Record<string, string>) ?? {};
+}
+
+/** Set a local display name for a session. An empty name clears the override. */
+export async function saveSessionDisplayName(
+  sessionId: string,
+  name: string
+): Promise<Record<string, string>> {
+  const map = await loadSessionDisplayNames();
+  if (name.trim()) {
+    map[sessionId] = name.trim();
+  } else {
+    delete map[sessionId];
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.SESSION_NAMES]: map });
+  return map;
+}

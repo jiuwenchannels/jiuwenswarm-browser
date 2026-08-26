@@ -10,12 +10,9 @@
  * - Move (◀ ▶) buttons to reorder context priority
  * - Unpin (×) button
  * - Click the chip to expand a preview of the extracted text
- *
- * Also renders a context-budget meter (chars used / MAX_CONTEXT_CHARS).
  */
 
 import { PinnedPage } from "@shared/types";
-import { MAX_CONTEXT_CHARS } from "@shared/constants";
 import { t } from "@shared/i18n";
 
 const LOW_EXTRACTION_THRESHOLD = 200; // characters
@@ -23,7 +20,6 @@ const PREVIEW_CHARS = 1200;
 
 export class ContextBar {
   private _chipsEl: HTMLElement;
-  private _meterEl: HTMLElement;
   private _onUnpin: (page: PinnedPage) => void;
   private _onRetry: (page: PinnedPage) => void;
   private _onMove: (id: string, dir: -1 | 1) => void;
@@ -31,13 +27,11 @@ export class ContextBar {
 
   constructor(
     chipsEl: HTMLElement,
-    meterEl: HTMLElement,
     onUnpin: (page: PinnedPage) => void,
     onRetry: (page: PinnedPage) => void,
     onMove: (id: string, dir: -1 | 1) => void
   ) {
     this._chipsEl = chipsEl;
-    this._meterEl = meterEl;
     this._onUnpin = onUnpin;
     this._onRetry = onRetry;
     this._onMove = onMove;
@@ -49,7 +43,6 @@ export class ContextBar {
     for (let i = 0; i < this._pages.length; i++) {
       this._chipsEl.appendChild(this._makeChip(this._pages[i], i));
     }
-    this._renderMeter();
   }
 
   addPage(page: PinnedPage): void {
@@ -61,20 +54,6 @@ export class ContextBar {
       chip.classList.add("flash");
       window.setTimeout(() => chip.classList.remove("flash"), 700);
     }
-  }
-
-  private _renderMeter(): void {
-    const total = this._pages.reduce((sum, p) => sum + p.context.text.length, 0);
-    if (this._pages.length === 0) {
-      this._meterEl.classList.add("hidden");
-      this._meterEl.innerHTML = "";
-      return;
-    }
-    this._meterEl.classList.remove("hidden");
-    const pct = Math.min(100, Math.round((total / MAX_CONTEXT_CHARS) * 100));
-    const kb = (total / 1000).toFixed(1);
-    const maxKb = Math.round(MAX_CONTEXT_CHARS / 1000);
-    this._meterEl.innerHTML = `<span>${kb}k / ${maxKb}k</span><span class="meter-bar"><span class="meter-fill" style="width:${pct}%"></span></span>`;
   }
 
   private _makeChip(page: PinnedPage, index: number): HTMLElement {

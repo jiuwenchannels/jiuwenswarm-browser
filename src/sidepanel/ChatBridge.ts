@@ -78,12 +78,11 @@ export class ChatBridge {
     this._send({ action: MSG.SET_SESSION, sessionId });
   }
 
-  sendChat(message: string, contextTabId?: number, notes?: string): void {
+  sendChat(message: string, contextTabId?: number): void {
     this._send({
       action: MSG.SEND_AGENT,
       message,
       ...(contextTabId != null ? { tabId: contextTabId } : {}),
-      ...(notes ? { notes } : {}),
       sessionId: this._sessionId,
     });
   }
@@ -107,6 +106,10 @@ export class ChatBridge {
 
   createSession(title: string): void {
     this._send({ action: MSG.NEW_SESSION, title });
+  }
+
+  renameSession(sessionId: string, name: string): void {
+    this._send({ action: MSG.RENAME_SESSION, sessionId, name });
   }
 
   reconnect(): void {

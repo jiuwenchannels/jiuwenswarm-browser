@@ -16,7 +16,7 @@
 import { createLogger } from "@shared/logger";
 import { MSG, MAX_CONTEXT_CHARS, COMMANDS, MAX_PINNED_PAGES } from "@shared/constants";
 import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
-import { loadAnnotationsByUrl, updateAnnotationNote, removeAnnotation, normalizeUrl } from "@shared/annotations";
+import { normalizeUrl } from "@shared/url";
 import { PinnedPage, PageContext } from "@shared/types";
 import { nanoid } from "nanoid";
 
@@ -95,24 +95,6 @@ async function init(): Promise<void> {
 
 // Kick off — SW restarts invoke the module from scratch
 init().catch((e) => log.error("init failed", e));
-
-// ---------------------------------------------------------------------------
-// Annotation restoration — run every time a tab finishes loading
-// ---------------------------------------------------------------------------
-
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  if (changeInfo.status !== "complete" || !tab.url) return;
-  try {
-    const annotations = await loadAnnotationsByUrl(tab.url);
-    if (annotations.length === 0) return;
-    await chrome.tabs.sendMessage(tabId, {
-      action: MSG.RESTORE_ANNOTATIONS,
-      annotations,
-    });
-  } catch {
-    // Content script not yet ready or tab not injectable — safe to ignore
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Side panel port management
@@ -212,6 +194,7 @@ const sidePanelHandlers: Record<string, SidePanelHandler> = {
   [MSG.NEW_SESSION]: handleNewSession,
   [MSG.SET_SESSION]: handleSetSession,
   [MSG.GET_STATUS]: handleGetStatus,
+  [MSG.RENAME_SESSION]: handleRenameSession,
 };
 
 async function handleSidePanelMsg(
@@ -247,15 +230,10 @@ async function handleSendAgent(
     if (ctx) cache.set(contextTabId, ctx);
     tabIds.push(contextTabId);
   }
-  let context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
-  // Prepend user session notes if present so the agent has them in context
-  const notes = (msg.notes as string | undefined)?.trim();
-  if (notes) {
-    context = `[User notes]\n${notes}\n\n${context}`;
-  }
+  const context = cache.aggregate(tabIds, MAX_CONTEXT_CHARS);
   // The gateway builds the agent prompt from `content`/`query` only — a
   // separate `context` param is silently ignored. Fold the page context
-  // (and notes) into `content` so the agent actually sees it.
+  // into `content` so the agent actually sees it.
   const userMessage = msg.message as string;
   const fullContent = context
     ? `${context}\n\n---\n\n${userMessage}`
@@ -378,6 +356,15 @@ function handleGetStatus(
   });
 }
 
+async function handleRenameSession(
+  msg: Record<string, unknown>,
+  _port: chrome.runtime.Port
+): Promise<void> {
+  const id = msg.sessionId as string;
+  const name = (msg.name as string) ?? "";
+  if (id) await sessionMgr.renameSession(id, name);
+}
+
 // ---------------------------------------------------------------------------
 // Content script messages (runtime.onMessage — short-lived)
 // ---------------------------------------------------------------------------
@@ -394,14 +381,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       activeSessionId: sessionMgr.activeSessionId,
       activeSessionTitle: sessionMgr.activeSession?.title ?? null,
     });
-    return false;
-  }
-  if (msg.action === MSG.ANNOTATION_UPDATE) {
-    updateAnnotationNote(msg.id as string, msg.note as string).catch(() => {});
-    return false;
-  }
-  if (msg.action === MSG.ANNOTATION_REMOVE) {
-    removeAnnotation(msg.id as string).catch(() => {});
     return false;
   }
   if (msg.action === MSG.OPEN_PANEL) {

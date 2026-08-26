@@ -33,7 +33,7 @@ chrome.runtime.sendMessage({ action: MSG.GET_STATUS }, async (resp) => {
 
   const activeId: string | null = resp.activeSessionId;
   if (activeId) {
-    sessionName.textContent = resp.activeSessionTitle ?? activeId;
+    sessionName.textContent = resp.activeSessionTitle ?? "Session";
 
     const pages = await getPinnedPagesBySession(activeId);
     pinCount.textContent = String(pages.length);

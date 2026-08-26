@@ -22,14 +22,11 @@ import {
 } from "@shared/storage";
 import { PinnedPage, ResearchSession, ChatEntry } from "@shared/types";
 import { MSG } from "@shared/constants";
-import { loadAnnotationsBySession } from "@shared/annotations";
 import { initI18n, applyStaticI18n, t } from "@shared/i18n";
-import { loadNote } from "@shared/notes";
 
 import { ChatBridge } from "./ChatBridge";
 import { SessionPicker } from "./SessionPicker";
 import { ContextBar } from "./ContextBar";
-import { NoteEditor } from "./NoteEditor";
 import { renderMarkdown } from "./markdown";
 import {
   exportSessionJson,
@@ -50,12 +47,10 @@ const sessionLabel    = document.getElementById("session-label")!;
 const sessionPickerEl = document.getElementById("session-picker")!;
 const pinBtn          = document.getElementById("pin-btn")!;
 const pinChipsEl      = document.getElementById("pin-chips")!;
-const contextMeter    = document.getElementById("context-meter")!;
 const chatMessages    = document.getElementById("chat-messages")!;
 const chatEmpty       = document.getElementById("chat-empty")!;
 const chatEmptyTitle  = document.getElementById("chat-empty-title")!;
-const chatEmptySub    = document.getElementById("chat-empty-sub")!;
-const chatEmptyStats  = document.getElementById("chat-empty-stats")!;
+const chatStatus      = document.getElementById("chat-status")!;
 const createSessionCta = document.getElementById("create-session-cta") as HTMLButtonElement;
 const chatInput       = document.getElementById("chat-input") as HTMLTextAreaElement;
 const chatSend        = document.getElementById("chat-send") as HTMLButtonElement;
@@ -85,24 +80,13 @@ const suggestionsEl   = document.getElementById("suggestions")!;
 const newSessionBtn   = document.getElementById("new-session-btn")!;
 const moreBtn         = document.getElementById("more-btn")!;
 
-// Notes panel
-const notesBtn        = document.getElementById("notes-btn")!;
-const notesPanel      = document.getElementById("notes-panel")!;
-const notesInput      = document.getElementById("notes-input") as HTMLTextAreaElement;
-const notesSaved      = document.getElementById("notes-saved")!;
-
-// Annotations panel
-const annotationsBtn   = document.getElementById("annotations-btn")!;
-const annotationsPanel = document.getElementById("annotations-panel")!;
-const annotationsEmpty = document.getElementById("annotations-empty")!;
-const annotationsList  = document.getElementById("annotations-list")!;
-
 // Session actions menu (⋯)
 const sessionActionsMenu = document.getElementById("session-actions-menu")!;
 const saExportJson    = document.getElementById("sa-export-json")!;
 const saExportMd      = document.getElementById("sa-export-md")!;
 const saImport        = document.getElementById("sa-import")!;
 const saOpenWeb       = document.getElementById("sa-open-web")!;
+const saRename        = document.getElementById("sa-rename")!;
 const saPinAll        = document.getElementById("sa-pin-all")!;
 const saSearch        = document.getElementById("sa-search")!;
 const saReader        = document.getElementById("sa-reader")!;
@@ -167,7 +151,6 @@ const picker = new SessionPicker(sessionPickerEl, sessionLabel, (id) => {
 
 const contextBar = new ContextBar(
   pinChipsEl,
-  contextMeter,
   async (page) => {
     await onUnpin(page);
   },
@@ -180,8 +163,6 @@ const contextBar = new ContextBar(
     await loadPinnedPages(_activeSessionId);
   }
 );
-
-const noteEditor = new NoteEditor(notesInput, notesSaved);
 
 // ---------------------------------------------------------------------------
 // Background event bus
@@ -234,8 +215,6 @@ function handleBgMsg(msg: Record<string, unknown>): void {
         loadPinnedPages(activeId);
         renderSessionChatIfNeeded(activeId);
       }
-      noteEditor.setSession(activeId).catch(() => {});
-      renderAnnotations();
       break;
     }
 
@@ -246,8 +225,6 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       picker.update(_sessions, session.id);
       loadPinnedPages(session.id);
       renderSessionChatIfNeeded(session.id);
-      noteEditor.setSession(session.id).catch(() => {});
-      renderAnnotations();
 
       // If a template was pending, inject its starting prompt now
       if (_pendingTemplateId) {
@@ -269,8 +246,6 @@ function handleBgMsg(msg: Record<string, unknown>): void {
         loadPinnedPages(activeId);
         renderSessionChatIfNeeded(activeId);
       }
-      noteEditor.setSession(activeId).catch(() => {});
-      renderAnnotations();
       break;
     }
 
@@ -355,23 +330,6 @@ sessionPickerEl.addEventListener("click", (e) => e.stopPropagation());
 sessionActionsMenu.addEventListener("click", (e) => e.stopPropagation());
 
 // ---------------------------------------------------------------------------
-// Notes panel toggle
-// ---------------------------------------------------------------------------
-
-notesBtn.addEventListener("click", () => {
-  const isOpen = notesPanel.classList.toggle("open");
-  if (isOpen) annotationsPanel.classList.remove("open");
-});
-
-annotationsBtn.addEventListener("click", () => {
-  const isOpen = annotationsPanel.classList.toggle("open");
-  if (isOpen) {
-    notesPanel.classList.remove("open");
-    renderAnnotations();
-  }
-});
-
-// ---------------------------------------------------------------------------
 // Session actions: export / import / open in web app
 // ---------------------------------------------------------------------------
 
@@ -425,6 +383,16 @@ saOpenWeb.addEventListener("click", async () => {
   } catch (e) {
     log.warn("open in web app failed", e);
   }
+});
+
+saRename.addEventListener("click", () => {
+  closeMoreMenu();
+  if (!_activeSessionId) return;
+  const session = _activeSession();
+  const current = session?.title ?? "";
+  const name = window.prompt(t("rename.prompt"), current);
+  if (name == null) return; // cancelled
+  bridge.renameSession(_activeSessionId, name.trim());
 });
 
 saPinAll.addEventListener("click", () => {
@@ -620,7 +588,7 @@ function _activeSession(): ResearchSession | undefined {
 async function loadPinnedPages(sessionId: string): Promise<void> {
   const pages = await getPinnedPagesBySession(sessionId);
   contextBar.update(pages);
-  await updateEmptyStateStats(pages.length);
+  updateCreateSessionCta();
 }
 
 // ---------------------------------------------------------------------------
@@ -637,11 +605,8 @@ function renderHistoryUser(text: string, ts: number): void {
   el.className = "msg user";
   const body = document.createElement("div");
   body.textContent = text;
-  const time = document.createElement("span");
-  time.className = "msg-ts";
-  time.textContent = formatTime(ts);
   el.appendChild(body);
-  el.appendChild(time);
+  _addMessageFooter(el, text, ts);
   chatMessages.appendChild(el);
 }
 
@@ -649,10 +614,7 @@ function renderHistoryAssistant(text: string, ts: number): void {
   const el = document.createElement("div");
   el.className = "msg assistant";
   el.innerHTML = renderMarkdown(text);
-  const time = document.createElement("span");
-  time.className = "msg-ts";
-  time.textContent = formatTime(ts);
-  el.appendChild(time);
+  _addMessageFooter(el, text, ts);
   chatMessages.appendChild(el);
 }
 
@@ -663,9 +625,9 @@ async function loadSessionChat(sessionId: string): Promise<void> {
     if (c.id !== "chat-empty") c.remove();
   });
   _lastUserEl = null;
-  _lastAssistantEl = null;
   _assistantRaw = "";
   _chatStarted = _chatHistory.length > 0;
+  updateChatStatus();
   chatEmpty.style.display = _chatStarted ? "none" : "";
   for (const entry of _chatHistory) {
     if (entry.role === "user") {
@@ -687,81 +649,15 @@ async function renderSessionChatIfNeeded(sessionId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Saved highlights (annotations) panel
-// ---------------------------------------------------------------------------
-
-async function renderAnnotations(): Promise<void> {
-  if (!_activeSessionId) {
-    annotationsList.innerHTML = "";
-    annotationsEmpty.style.display = "block";
-    return;
-  }
-  const entries = await loadAnnotationsBySession(_activeSessionId);
-  annotationsList.innerHTML = "";
-  annotationsEmpty.style.display = entries.length === 0 ? "block" : "none";
-  for (const a of entries) {
-    const item = document.createElement("div");
-    item.className = "anno-item";
-    item.title = "Open this page";
-
-    const text = document.createElement("div");
-    text.className = "anno-text";
-    text.textContent = `"${a.text}"`;
-
-    const url = document.createElement("div");
-    url.className = "anno-url";
-    url.textContent = a.url;
-
-    item.appendChild(text);
-    item.appendChild(url);
-
-    if (a.note) {
-      const note = document.createElement("div");
-      note.className = "anno-note";
-      note.textContent = `Note: ${a.note}`;
-      item.appendChild(note);
-    }
-
-    item.addEventListener("click", () => {
-      chrome.tabs.create({ url: a.url });
-    });
-    annotationsList.appendChild(item);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Empty-state stats (progression / "my research" feel)
 // ---------------------------------------------------------------------------
 
-async function updateEmptyStateStats(pinnedCount: number): Promise<void> {
-  if (!_connected || _chatStarted) {
-    chatEmptyStats.textContent = "";
+async function updateCreateSessionCta(): Promise<void> {
+  if (!_connected || _chatStarted || !!_activeSessionId) {
     createSessionCta.hidden = true;
-    return;
-  }
-  if (!_activeSessionId) {
-    chatEmptyStats.textContent = "";
+  } else {
     createSessionCta.hidden = false;
-    return;
   }
-  createSessionCta.hidden = true;
-  const session = _activeSession();
-  const parts: string[] = [];
-  if (session) {
-    parts.push(`mode: ${session.mode || "Research"}`);
-    if (session.title) parts.push(`"${session.title}"`);
-  }
-  parts.push(`${pinnedCount} page${pinnedCount === 1 ? "" : "s"} pinned`);
-  // Activity dashboard: pages pinned in the last 7 days (across all sessions).
-  try {
-    const all = await loadAllPinnedPages();
-    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const weekly = all.filter((p) => new Date(p.pinnedAt).getTime() >= weekAgo).length;
-    parts.push(`${weekly} this week`);
-  } catch {
-    /* stats are best-effort */
-  }
-  chatEmptyStats.textContent = parts.join(" · ");
 }
 
 // ---------------------------------------------------------------------------
@@ -802,20 +698,23 @@ let _assistantRaw = "";
 let _assistantRaf: number | null = null;
 let _chatStarted = false;
 let _stopRequested = false;
-let _lastUserText = "";
 let _lastUserEl: HTMLDivElement | null = null;
-let _lastAssistantEl: HTMLDivElement | null = null;
 let _lastTurnStart = 0;
 /** Tab the last "summarize this page" / "ask selection" action targeted. */
 let _contextTabId: number | null = null;
 let _connBannerTimer: number | null = null;
 
+/** Connection status shown at the bottom of the empty state; hidden with it. */
+function updateChatStatus(): void {
+  chatStatus.textContent = _connected ? t("empty.ready") : t("empty.waiting");
+}
+
 function setConnected(connected: boolean): void {
   _connected = connected;
   statusDot.classList.toggle("connected", connected);
-  chatEmptySub.textContent = connected ? t("empty.ready") : t("empty.waiting");
   chatEmptyTitle.textContent = connected ? t("empty.title.ready") : t("empty.title.waiting");
   connBannerText.textContent = t("conn.lost");
+  updateChatStatus();
   if (connected) {
     // Clear any pending "lost connection" debounce.
     if (_connBannerTimer != null) {
@@ -845,6 +744,7 @@ function setConnected(connected: boolean): void {
   } else {
     maybeShowCachedResponse();
   }
+  updateCreateSessionCta();
 }
 
 /** Offline mode: if the chat is empty and a previous answer is cached, show it. */
@@ -853,6 +753,7 @@ function maybeShowCachedResponse(): void {
   loadLastResponse().then((cached) => {
     if (!cached || !cached.text) return;
     _chatStarted = true;
+    updateChatStatus();
     chatEmpty.style.display = "none";
     const el = document.createElement("div");
     el.className = "msg assistant";
@@ -876,14 +777,14 @@ function maybeAutoSummarize(page: PinnedPage): void {
 
 void loadSettings().then((s) => { _settings = s; }).catch(() => {});
 
-function refreshSuggestions(): void {
+async function refreshSuggestions(): Promise<void> {
   suggestionsEl.innerHTML = "";
   if (!_connected || _chatStarted) return;
+  // "Compare" only makes sense with at least two pinned pages.
+  const pinnedCount = _activeSessionId
+    ? (await getPinnedPagesBySession(_activeSessionId)).length
+    : 0;
   const buttons: { label: string; action: () => void }[] = [
-    {
-      label: t("sug.pin"),
-      action: () => bridge.pinCurrentTab(),
-    },
     {
       label: t("sug.summarize"),
       action: () => {
@@ -896,15 +797,17 @@ function refreshSuggestions(): void {
         });
       },
     },
-    {
+  ];
+  if (pinnedCount >= 2) {
+    buttons.push({
       label: t("sug.compare"),
       action: () => {
         chatInput.value = "Compare the pinned pages and flag the key differences.";
         chatInput.dispatchEvent(new Event("input"));
         chatInput.focus();
       },
-    },
-  ];
+    });
+  }
 
   for (const b of buttons) {
     const el = document.createElement("button");
@@ -933,45 +836,24 @@ function addTurnDivider(ts: number): void {
 function renderUserMessage(text: string): void {
   _chatStarted = true;
   chatEmpty.style.display = "none";
-  _lastUserText = text;
   _lastTurnStart = Date.now();
   addTurnDivider(_lastTurnStart);
-  // Only the most recent user message is editable.
-  document.querySelectorAll(".msg.user .msg-edit").forEach((el) => el.remove());
   _lastUserEl = document.createElement("div");
   _lastUserEl.className = "msg user";
   const body = document.createElement("div");
   body.textContent = text;
-  const ts = document.createElement("span");
-  ts.className = "msg-ts";
-  ts.textContent = formatTime(_lastTurnStart);
-  const editBtn = document.createElement("button");
-  editBtn.className = "msg-edit";
-  editBtn.textContent = t("msg.edit");
-  editBtn.title = t("msg.editTitle");
-  editBtn.addEventListener("click", () => editUserMessage());
   _lastUserEl.appendChild(body);
-  _lastUserEl.appendChild(editBtn);
-  _lastUserEl.appendChild(ts);
+  _addMessageFooter(_lastUserEl, text, _lastTurnStart);
   chatMessages.appendChild(_lastUserEl);
+  updateChatStatus();
   chatMessages.scrollTop = chatMessages.scrollHeight;
   _chatHistory.push({ role: "user", text, ts: _lastTurnStart });
   persistChatHistory();
 }
 
-/** Load the last question back into the input and drop the last turn for editing. */
-function editUserMessage(): void {
-  if (_streaming || !_lastUserText) return;
-  if (_lastAssistantEl) _lastAssistantEl.remove();
-  if (_lastUserEl) _lastUserEl.remove();
-  chatInput.value = _lastUserText;
-  chatInput.dispatchEvent(new Event("input"));
-  chatInput.focus();
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
 function beginAssistantTurn(): void {
   _chatStarted = true;
+  updateChatStatus();
   chatEmpty.style.display = "none";
   _assistantRaw = "";
   _assistantEl = document.createElement("div");
@@ -979,6 +861,7 @@ function beginAssistantTurn(): void {
   _assistantEl.innerHTML =
     '<span class="sk-dot"></span><span class="sk-dot"></span><span class="sk-dot"></span>';
   chatMessages.appendChild(_assistantEl);
+  updateChatStatus();
 }
 
 /** Render the buffered raw text as markdown, throttled to one per frame. */
@@ -1015,13 +898,8 @@ function endTurn(finalText?: string): void {
     if (finalText) _assistantRaw = finalText;
     _assistantEl.classList.remove("thinking");
     _assistantEl.innerHTML = renderMarkdown(_assistantRaw);
-    _assistantEl.appendChild(_makeMessageTools());
     _appendSources(_assistantEl);
-    const ts = document.createElement("span");
-    ts.className = "msg-ts";
-    ts.textContent = formatTime(Date.now());
-    _assistantEl.appendChild(ts);
-    _lastAssistantEl = _assistantEl;
+    _addMessageFooter(_assistantEl, _assistantRaw, Date.now());
     _assistantEl = null;
   }
   _streaming = false;
@@ -1040,34 +918,33 @@ function endTurn(finalText?: string): void {
   }
 }
 
-function _makeMessageTools(): HTMLElement {
-  const tools = document.createElement("div");
-  tools.className = "msg-tools";
-  tools.style.cssText = "margin-top:8px;display:flex;gap:6px;align-items:center;";
-
-  const copyBtn = document.createElement("button");
-  copyBtn.className = "msg-copy";
-  copyBtn.textContent = t("msg.copy");
-  copyBtn.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(_assistantRaw);
-    copyBtn.textContent = t("msg.copied");
-    copyBtn.classList.add("copied");
+/** Make a small copy icon button (copies the message text on click). */
+function _makeCopyIcon(text: string): HTMLButtonElement {
+  const btn = document.createElement("button");
+  btn.className = "msg-copy-icon";
+  btn.title = t("msg.copy");
+  btn.textContent = "⧉";
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "✓";
     window.setTimeout(() => {
-      copyBtn.textContent = t("msg.copy");
-      copyBtn.classList.remove("copied");
-    }, 1500);
+      btn.textContent = "⧉";
+    }, 1200);
   });
-  tools.appendChild(copyBtn);
+  return btn;
+}
 
-  const regenBtn = document.createElement("button");
-  regenBtn.className = "msg-copy";
-  regenBtn.textContent = t("msg.regenerate");
-  regenBtn.addEventListener("click", () => {
-    regenerate(_lastAssistantEl);
-  });
-  tools.appendChild(regenBtn);
-
-  return tools;
+/** Append a bottom row with the timestamp (left) and the copy icon (right). */
+function _addMessageFooter(el: HTMLElement, text: string, tsValue: number): void {
+  const footer = document.createElement("div");
+  footer.className = "msg-footer";
+  const time = document.createElement("span");
+  time.className = "msg-ts";
+  time.textContent = formatTime(tsValue);
+  footer.appendChild(time);
+  footer.appendChild(_makeCopyIcon(text));
+  el.appendChild(footer);
 }
 
 function _appendSources(el: HTMLElement): void {
@@ -1092,15 +969,6 @@ function _appendSources(el: HTMLElement): void {
     }
     el.appendChild(wrap);
   }).catch(() => {});
-}
-
-function regenerate(completedEl: HTMLDivElement | null): void {
-  if (_streaming || !_connected || !_lastUserText) return;
-  // Remove the previous turn's user + assistant messages.
-  if (completedEl) completedEl.remove();
-  if (_lastUserEl) _lastUserEl.remove();
-  // Re-send the same question.
-  _sendUserMessage(_lastUserText);
 }
 
 function renderError(message: string): void {
@@ -1175,7 +1043,7 @@ function _sendUserMessage(text: string): void {
   chatSend.hidden = true;
   stopBtn.hidden = false;
   beginAssistantTurn();
-  bridge.sendChat(text, _contextTabId ?? undefined, noteEditor.getNoteText() || undefined);
+  bridge.sendChat(text, _contextTabId ?? undefined);
   _contextTabId = null;
 }
 
@@ -1260,7 +1128,7 @@ function closePrivacy(): void {
 }
 
 // ---------------------------------------------------------------------------
-// Full-text search across pinned pages and session notes
+// Full-text search across pinned pages
 // ---------------------------------------------------------------------------
 
 function openSearch(initialQuery?: string): void {
@@ -1291,20 +1159,6 @@ async function runSearch(): Promise<void> {
       const start = Math.max(0, idx - 40);
       const snippet = p.context.text.slice(start, start + 120) + (idx < 0 ? "" : "…");
       results.push({ title: p.context.title || p.context.url, url: p.context.url, snippet });
-    }
-  }
-
-  // Search session notes too.
-  for (const s of _sessions) {
-    const note = await loadNote(s.id);
-    if (note.toLowerCase().includes(q)) {
-      const idx = note.toLowerCase().indexOf(q);
-      const start = Math.max(0, idx - 40);
-      results.push({
-        title: `${s.title} — note`,
-        url: "",
-        snippet: note.slice(start, start + 120) + "…",
-      });
     }
   }
 

@@ -52,8 +52,8 @@ and answers questions across everything you pinned — no copy-pasting.
   Twitter/X, Hacker News) with a smart fallback for everything else.
 - Sessions are shared with the JiuwenSwarm web app — start in the browser, finish
   anywhere.
-- Saved highlights and session notes persist across visits and reloads.
-- Full-text search across every pinned page and your notes.
+- Session history and pinned pages persist across visits and reloads.
+- Full-text search across every pinned page.
 - Dark mode, full keyboard navigation, and English + Simplified Chinese.
 
 **Note:** This extension works with a **JiuwenSwarm server** running locally on your

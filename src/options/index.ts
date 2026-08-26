@@ -12,7 +12,6 @@ const log = createLogger("options");
 const hostInput = document.getElementById("host") as HTMLInputElement;
 const portInput = document.getElementById("port") as HTMLInputElement;
 const autoExtractCheck = document.getElementById("auto-extract") as HTMLInputElement;
-const showAnnotationsCheck = document.getElementById("show-annotations") as HTMLInputElement;
 const autoSummarizeCheck = document.getElementById("auto-summarize") as HTMLInputElement;
 const saveBtn = document.getElementById("save-btn")!;
 const statusMsg = document.getElementById("status-msg")!;
@@ -25,7 +24,6 @@ async function load(): Promise<void> {
   hostInput.value = settings.host;
   portInput.value = String(settings.port);
   autoExtractCheck.checked = settings.autoExtract;
-  showAnnotationsCheck.checked = settings.showAnnotations;
   autoSummarizeCheck.checked = settings.autoSummarizeOnPin;
   log.debug("settings loaded", settings);
 }
@@ -40,7 +38,6 @@ saveBtn.addEventListener("click", async () => {
     host: hostInput.value.trim() || "127.0.0.1",
     port,
     autoExtract: autoExtractCheck.checked,
-    showAnnotations: showAnnotationsCheck.checked,
     autoSummarizeOnPin: autoSummarizeCheck.checked,
   });
   statusMsg.classList.add("visible");

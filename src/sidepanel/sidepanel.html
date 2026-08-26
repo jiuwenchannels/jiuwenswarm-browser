@@ -121,45 +121,6 @@
     #nf-create-btn { background: var(--accent); color: #fff; }
     #nf-cancel-btn { background: var(--border); color: var(--text); }
 
-    /* ── Notes panel ── */
-    #notes-panel {
-      display: none; flex-direction: column; gap: 4px;
-      padding: 8px 10px; background: var(--surface);
-      border-bottom: 1px solid var(--border); flex-shrink: 0;
-    }
-    #notes-panel.open { display: flex; }
-    #notes-input {
-      width: 100%; min-height: 80px; max-height: 200px; resize: vertical;
-      background: var(--bg); color: var(--text);
-      border: 1px solid var(--border); border-radius: 4px;
-      padding: 6px 8px; font-size: 12px; font-family: inherit; outline: none;
-    }
-    #notes-input:focus { border-color: var(--accent); }
-    #notes-footer {
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 11px; color: var(--text-dim);
-    }
-    #notes-saved { opacity: 0; transition: opacity .4s; }
-
-    /* ── Annotations panel ── */
-    #annotations-panel {
-      display: none; flex-direction: column; gap: 6px;
-      padding: 8px 10px; background: var(--surface);
-      border-bottom: 1px solid var(--border); flex-shrink: 0;
-      max-height: 220px; overflow-y: auto;
-    }
-    #annotations-panel.open { display: flex; }
-    #annotations-empty { font-size: 11px; color: var(--text-dim); line-height: 1.5; }
-    #annotations-list { display: flex; flex-direction: column; gap: 6px; }
-    .anno-item {
-      border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
-      cursor: pointer; transition: border-color .15s;
-    }
-    .anno-item:hover { border-color: var(--accent); }
-    .anno-item .anno-text { font-size: 12px; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .anno-item .anno-url { font-size: 10px; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
-    .anno-item .anno-note { font-size: 11px; color: var(--accent); margin-top: 3px; font-style: italic; }
-
     /* ── Context bar ── */
     #context-bar {
       display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap;
@@ -189,14 +150,6 @@
     }
     #pin-btn:hover { border-color: var(--accent); color: var(--accent); }
 
-    #context-meter {
-      margin-left: auto; flex-shrink: 0; display: flex; align-items: center; gap: 6px;
-      font-size: 10px; color: var(--text-dim); white-space: nowrap;
-    }
-    #context-meter .meter-bar { width: 46px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
-    #context-meter .meter-fill { height: 100%; background: var(--accent); transition: width .3s; }
-    #context-meter.hidden { visibility: hidden; }
-
     .pin-chip { position: relative; cursor: pointer; }
     .pin-preview {
       display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 40;
@@ -209,18 +162,24 @@
     .pin-chip .chip-actions { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 
     /* ── Native chat view ── */
-    #chat-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    #chat-view { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
     #chat-messages {
+      position: relative;
       flex: 1; min-height: 0; overflow-y: auto;
       padding: 12px; display: flex; flex-direction: column; gap: 10px;
     }
     #chat-empty {
-      margin: auto; text-align: center; color: var(--text-dim); font-size: 13px;
+      position: relative; flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; text-align: center; color: var(--text-dim); font-size: 13px;
     }
     #chat-empty .icon { font-size: 26px; opacity: .4; margin-bottom: 6px; }
     #chat-empty .sub { font-size: 11px; opacity: .7; }
+    #chat-status {
+      position: absolute; bottom: 0; left: 0; right: 0; text-align: center;
+      font-size: 11px; color: var(--text-dim); padding-top: 12px;
+    }
 
-    .msg { max-width: 92%; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+    .msg { position: relative; max-width: 92%; padding: 8px 11px; border-radius: 10px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
     .msg.user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
     .msg.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
     .msg.error { align-self: flex-start; background: #fdecec; border: 1px solid #f7cccc; color: #b91c1c; }
@@ -269,15 +228,12 @@
     }
     .msg .msg-sources .src-chip:hover { border-color: var(--accent); color: var(--accent); }
 
-    .msg .msg-ts { display: block; font-size: 10px; color: var(--text-dim); margin-top: 4px; opacity: .7; }
-    .msg.user .msg-ts { text-align: right; color: rgba(255,255,255,.8); }
-    .msg.user .msg-edit {
-      background: none; border: 1px solid rgba(255,255,255,.55); color: #fff;
-      border-radius: 4px; padding: 1px 7px; font-size: 10px; cursor: pointer; margin-top: 4px;
+    .msg-footer {
+      display: flex; justify-content: space-between; align-items: center; margin-top: 4px;
     }
-    .msg.user .msg-edit:hover { border-color: #fff; color: #fff; }
+    .msg .msg-ts { font-size: 10px; color: var(--text-dim); opacity: .7; }
+    .msg.user .msg-ts { color: rgba(255,255,255,.8); }
     .msg-turn-divider { text-align: center; font-size: 10px; color: var(--text-dim); opacity: .6; margin: 2px 0; }
-    #chat-hint { padding: 4px 12px 8px; font-size: 11px; color: var(--text-dim); background: var(--surface); border-top: 1px solid var(--border); }
 
     /* ── Markdown-rendered assistant messages ── */
     .msg.assistant p { margin: 0 0 8px; }
@@ -298,12 +254,15 @@
     .sk-dot:nth-child(2) { animation-delay: .15s; }
     .sk-dot:nth-child(3) { animation-delay: .3s; }
     @keyframes sk-bounce { 0%, 80%, 100% { transform: scale(.6); opacity: .5; } 40% { transform: scale(1); opacity: 1; } }
-    .msg.assistant .msg-copy {      margin-top: 8px; background: none; border: 1px solid var(--border);
-      color: var(--text-dim); border-radius: 4px; padding: 2px 8px;
-      cursor: pointer; font-size: 11px;
+    .msg.assistant .msg-copy-icon { color: var(--text-dim); }
+    .msg.user .msg-copy-icon { color: rgba(255,255,255,.85); }
+    .msg-copy-icon {
+      background: none; border: none; cursor: pointer;
+      font-size: 12px; line-height: 1; padding: 0;
+      opacity: .7; transition: opacity .15s;
     }
-    .msg.assistant .msg-copy:hover { border-color: var(--accent); color: var(--accent); }
-    .msg.assistant .msg-copy.copied { color: var(--green); border-color: var(--green); }
+    .msg-copy-icon:hover { opacity: 1; color: var(--accent); }
+    .msg.user .msg-copy-icon:hover { color: #fff; }
 
     /* ── Suggestion chips (empty state) ── */
     #suggestions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
@@ -438,6 +397,7 @@
     <button class="sa-item" id="sa-import" role="menuitem" data-i18n="actions.import">⬆ Import session…</button>
     <div class="sa-divider"></div>
     <button class="sa-item" id="sa-open-web" role="menuitem" data-i18n="actions.openWeb">↗ Open in web app</button>
+    <button class="sa-item" id="sa-rename" role="menuitem" data-i18n="actions.rename">✏️ Rename session…</button>
     <div class="sa-divider"></div>
     <button class="sa-item" id="sa-pin-all" role="menuitem" data-i18n="actions.pinAll">📌 Pin all open tabs</button>
     <button class="sa-item" id="sa-search" role="menuitem" data-i18n="actions.search">🔍 Search pinned pages</button>
@@ -468,25 +428,7 @@
 
   <div id="context-bar">
     <button id="pin-btn" title="Pin this page to the active session (Ctrl+Shift+P)" data-i18n-title="pin.pinTitle" data-i18n="pin.pin">📌 Pin page</button>
-    <button id="notes-btn" class="icon-btn" title="Toggle session notes" data-i18n-title="notes.toggle">📝</button>
-    <button id="annotations-btn" class="icon-btn" title="View saved highlights" data-i18n-title="annotations.toggle">🔆</button>
     <div id="pin-chips"></div>
-    <div id="context-meter" title="Extracted text sent to the agent"></div>
-  </div>
-
-  <!-- Session notes panel (hidden by default) -->
-  <div id="notes-panel">
-    <textarea id="notes-input" placeholder="Write notes about this session… They will be included as context when you send a message." data-i18n-placeholder="notes.placeholder"></textarea>
-    <div id="notes-footer">
-      <span data-i18n="notes.footer">Notes are sent as context with every message.</span>
-      <span id="notes-saved" data-i18n="notes.saved">Saved ✓</span>
-    </div>
-  </div>
-
-  <!-- Saved highlights panel (hidden by default) -->
-  <div id="annotations-panel">
-    <div id="annotations-empty" data-i18n="annotations.empty">No saved highlights in this session yet. When the agent highlights a passage on a page, it's saved here — click any saved highlight on a page to add a note.</div>
-    <div id="annotations-list"></div>
   </div>
 
   <!-- Connection banner (shown when the server is unreachable) -->
@@ -500,13 +442,11 @@
       <div id="chat-empty">
         <div class="icon">💬</div>
         <div id="chat-empty-title" data-i18n="empty.title.ready">Start a conversation</div>
-        <div class="sub" id="chat-empty-sub" data-i18n="empty.waiting">Waiting for server…</div>
-        <div id="chat-empty-stats" class="sub" style="font-size:11px;margin-top:4px;"></div>
         <button id="create-session-cta" hidden>+ Create a session</button>
         <div id="suggestions"></div>
+        <div id="chat-status"></div>
       </div>
     </div>
-    <div id="chat-hint"></div>
     <div id="chat-input-row">
       <textarea id="chat-input" rows="1" placeholder="Ask JiuwenSwarm about the pages you pinned…" data-i18n-placeholder="chat.placeholder" disabled></textarea>
       <button id="stop-btn" hidden title="Stop generating" data-i18n-title="chat.stopTitle">■</button>
@@ -546,7 +486,7 @@
   <div id="search">
     <div class="tour-card" role="dialog" aria-labelledby="search-title">
       <h3 id="search-title" data-i18n="search.title">Search pinned pages</h3>
-      <input id="search-input" type="text" placeholder="Search title, text, notes…" data-i18n-placeholder="search.placeholder" autocomplete="off" style="width:100%;margin-bottom:10px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;" />
+      <input id="search-input" type="text" placeholder="Search title, text…" data-i18n-placeholder="search.placeholder" autocomplete="off" style="width:100%;margin-bottom:10px;padding:7px 9px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:13px;" />
       <div id="search-results" style="text-align:left;max-height:200px;overflow-y:auto;font-size:12px;"></div>
       <div class="tour-nav">
         <button id="search-close" class="primary" data-i18n="search.close">Close</button>

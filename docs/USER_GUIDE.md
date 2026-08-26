@@ -53,10 +53,6 @@ Three ways to open it:
 5. Click **Create**. The session is active immediately.
 
 Your last active session is restored automatically the next time you open the panel.
-Before your first question, the empty state shows a one-line snapshot of the current
-session — its mode, title, how many pages you've pinned, and how many you've pinned this
-week — so you always know where you are.
-
 Switch sessions by clicking the session name in the header to open the session picker.
 
 ---
@@ -154,7 +150,8 @@ Type your message in the chat input at the bottom of the side panel and press
 indicator appears; it's replaced by the answer as soon as the first words arrive.
 
 Before your first message, one-click **suggestion chips** appear to help you
-start — "Pin this page", "Summarize this page", and "Compare the pinned pages".
+start — "Summarize this page", and "Compare the pinned pages" (only when you've pinned
+at least two pages).
 
 The agent automatically receives:
 - Your message
@@ -168,9 +165,6 @@ code blocks, and links all display formatted instead of as raw text. Click any l
 in an answer to open it in a new tab.
 
 - **Copy** — grab the full answer with one click.
-- **Edit & resend** — the **✎ Edit** button on your last question loads it back into the
-  input (dropping the previous turn) so you can revise and resend.
-- **Regenerate** — the ↻ button removes the last turn and re-asks the same question.
 - **Stop** — while an answer is streaming, a red **■** button appears; click it to stop
   generation.
 - **Sources** — each answer lists the pages it drew from as chips. Click a source chip
@@ -229,56 +223,6 @@ While the agent acts on a page, the panel shows an inline status chip (e.g.
 
 ---
 
-## Page Annotations
-
-### Persistent Highlights
-
-When the agent highlights a passage on a page (see [Agent Page Actions](#agent-page-actions)),
-that highlight is automatically saved. The next time you visit the same URL, the
-highlighted text reappears — even after a browser restart.
-
-Saved highlights use a distinct color with a solid outline to distinguish them from
-transient agent highlights that are cleared at the end of a turn.
-
-### Viewing Saved Highlights
-
-Click the **🔆** button in the context bar to open the **saved-highlights panel**.
-It lists every highlight saved in the active session — the highlighted text, its URL,
-and any sticky note. Click a highlight to open that page in a new tab. The panel
-closes over an empty note so it's clear how highlights work when you're just starting.
-
-### Sticky Notes on Highlights
-
-Click any saved highlight on the page to open a note popover attached to it.
-
-- **Save** — stores a text note on the highlight. The note text appears as a tooltip.
-- **Delete** — removes the highlight and its note from storage permanently.
-
-Notes are local to your browser (stored in `chrome.storage.local`).
-
----
-
-## Session Notes
-
-The side panel includes a lightweight freeform note editor for the active session.
-
-### Opening the Notes Panel
-
-Click the **📝** button in the context bar to toggle the notes panel open or closed.
-The panel appears below the context bar.
-
-### How Notes Work
-
-- Notes are auto-saved as you type (800 ms debounce). A **Saved ✓** indicator
-  confirms when the save completes.
-- Notes are stored per session in Chrome local storage and survive browser restarts.
-- When you switch sessions, the notes panel loads the saved note for the new session.
-- Every chat message you send includes your notes as context, prepended as
-  `[User notes]` before the page content. This lets the agent refer back to your
-  observations without you needing to repeat them.
-
----
-
 ## Keyboard Shortcuts
 
 | Shortcut | Action |
@@ -302,6 +246,12 @@ session's pinned pages.
 
 The picker is **keyboard-friendly**: with it open, press **↑ / ↓** to move, **Enter**
 to select, and **Esc** to close.
+
+### Rename a Session
+
+Click **⋯** → **Rename session…** to give the active session a name you choose (or clear
+the field to reset it). The name is saved locally in your browser and shows in the
+header, the session picker, and the popup.
 
 ### Create a New Session
 
@@ -343,7 +293,7 @@ Click **⋯** → **Pin all open tabs** to pin every tab in the current window t
 
 ### Search Pinned Pages
 
-Click **⋯** → **🔍 Search pinned pages** to search across every pinned page (title, URL, and extracted text) and all session notes. Type to search; results appear instantly. Click a result to open that page.
+Click **⋯** → **🔍 Search pinned pages** to search across every pinned page (title, URL, and extracted text). Type to search; results appear instantly. Click a result to open that page.
 
 ### Re-read Offline
 
@@ -373,7 +323,6 @@ Open settings via the popup (**⚙ Settings**) or right-click the toolbar icon �
 | Port | 19000 | WebSocket port |
 | Default mode | Research | Mode for newly created sessions |
 | Auto-extract | On | Extract page context automatically when panel opens |
-| Show annotations | On | Highlight text passages cited by the agent |
 | Auto-summarize on pin | Off | Ask for a short summary each time you pin a page |
 
 The extension follows your operating system's **light/dark** color scheme
@@ -430,14 +379,11 @@ its own context window limit.
 
 ## Privacy
 
-- **All processing is local.** The extension communicates exclusively with
-  `ws://127.0.0.1` (or your configured local address). No data is sent to
-  any external server by the extension itself.
-- Page content is held in the extension's in-memory cache and in Chrome local
-  storage. It is never transmitted outside your machine except to your local
-  JiuwenSwarm server.
-- Sessions are stored on your local JiuwenSwarm server.
-- Uninstalling the extension deletes all locally stored data (pinned page metadata
-  and settings). Sessions on the server are unaffected.
+- The extension sends page content to the **JiuwenSwarm server you configure** (default `ws://127.0.0.1`). If that server runs on your machine, content stays local; if you point the extension at a remote server, content is sent there instead.
+- The extension itself contacts no other service.
+- **LLM note:** your JiuwenSwarm server forwards requests to whatever LLM provider you have configured (a local model or a cloud API). That happens between your server and the LLM, outside the extension's control.
+- Page content is also held in the extension's in-memory cache and Chrome local storage.
+- Sessions are stored on your JiuwenSwarm server.
+- Uninstalling the extension deletes all locally stored data (pinned page metadata and settings). Sessions on the server are unaffected.
 
 You can review this at any time from the side panel: **⋯** → **🔒 Privacy**.

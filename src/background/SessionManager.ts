@@ -7,7 +7,7 @@
  */
 
 import { createLogger } from "@shared/logger";
-import { loadActiveSessionId, saveActiveSessionId } from "@shared/storage";
+import { loadActiveSessionId, saveActiveSessionId, loadSessionDisplayNames, saveSessionDisplayName } from "@shared/storage";
 import { ResearchSession } from "@shared/types";
 import type { WsClient } from "./WsClient";
 
@@ -27,6 +27,7 @@ export class SessionManager {
   private _sessions: ResearchSession[] = [];
   private _activeSessionId: string | null = null;
   private _listeners: Set<ChangeListener> = new Set();
+  private _displayNames: Record<string, string> = {};
   private _ready!: Promise<void>;
   private _resolveReady!: () => void;
 
@@ -39,6 +40,17 @@ export class SessionManager {
   /** Resolves once the active-session pointer has been loaded from storage. */
   get ready(): Promise<void> {
     return this._ready;
+  }
+
+  /** Local display-name override for a session, if any. */
+  private _displayName(id: string): string | undefined {
+    const n = this._displayNames[id];
+    return n && n.trim() ? n : undefined;
+  }
+
+  /** Apply a local display-name override, falling back to the server's name/id. */
+  private _title(id: string, serverTitle?: string): string {
+    return this._displayName(id) ?? serverTitle ?? id;
   }
 
   get sessions(): ResearchSession[] {
@@ -59,6 +71,7 @@ export class SessionManager {
    */
   async init(): Promise<void> {
     this._activeSessionId = await loadActiveSessionId();
+    this._displayNames = await loadSessionDisplayNames();
     log.info("init, active pointer=", this._activeSessionId);
     this._resolveReady();
     this._notify();
@@ -73,7 +86,7 @@ export class SessionManager {
         .filter((ss) => ss && typeof ss.session_id === "string")
         .map((ss) => ({
           id: ss.session_id,
-          title: ss.title || ss.session_id,
+          title: this._title(ss.session_id, ss.title),
           mode: (ss.mode as string) || "chat",
           createdAt: ss.created_at || new Date().toISOString(),
           updatedAt: ss.created_at || new Date().toISOString(),
@@ -88,7 +101,7 @@ export class SessionManager {
       if (this._activeSessionId && !this._sessions.find((s) => s.id === this._activeSessionId)) {
         this._sessions.unshift({
           id: this._activeSessionId,
-          title: this._activeSessionId,
+          title: this._title(this._activeSessionId, undefined),
           mode: "chat",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -132,7 +145,7 @@ export class SessionManager {
     if (!existing) {
       this._sessions.unshift({
         id: sessionId,
-        title: sessionId,
+        title: this._title(sessionId, undefined),
         mode: mode || "chat",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -152,6 +165,16 @@ export class SessionManager {
     await this._client.request("session.switch", { session_id: id }).catch(() => {});
     this._activeSessionId = id;
     await saveActiveSessionId(id);
+    this._notify();
+  }
+
+  /** Rename a session locally (display-name override). Empty name clears it. */
+  async renameSession(id: string, name: string): Promise<void> {
+    this._displayNames = await saveSessionDisplayName(id, name);
+    const session = this._sessions.find((s) => s.id === id);
+    if (session) {
+      session.title = this._title(id, session.title);
+    }
     this._notify();
   }
 
