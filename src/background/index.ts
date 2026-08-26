@@ -10,7 +10,6 @@
  * 5. Watch tab lifecycle (context refresh, eviction)
  * 6. Route messages between side panel ↔ server
  * 7. Dispatch browser-native agent tool calls (ToolDispatcher)
- * 8. Restore persistent page annotations when a tab finishes loading
  */
 
 import { createLogger } from "@shared/logger";
