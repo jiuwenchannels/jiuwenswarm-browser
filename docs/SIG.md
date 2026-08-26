@@ -4,14 +4,6 @@
 This document covers architecture, decomposition, sequence diagrams, technical
 constraints, system impact, and external dependencies.
 
-> **Post-approval simplifications:** This architecture document reflects the originally
-> approved design. Since implementation the product was simplified — the following were
-> **removed**: persistent page annotations / sticky notes, per-session notes, session
-> **import**, session **templates**, **edit-and-resend**, **regenerate**, the
-> context-budget meter, and **Open in web app**. Agent highlights are now **transient**
-> (applied and cleared within a session). See the README and USER_GUIDE for the current
-> feature set.
-
 ---
 
 ## Feature Scope
@@ -71,11 +63,13 @@ protocol used by the IDE plugin and web app — no new server-side changes are r
            ┌─────────────────────▼─────────────────────────────────────────┐
            │     Side panel  (chrome.sidePanel, requires Chrome 114+)       │
            │                                                                │
-           │  ChatBridge     ── port management, jiuwen:bg event dispatch   │
-           │  SessionPicker  ── session dropdown                            │
-           │  ContextBar     ── pinned-page chips with quality signals      │
-           │  SessionExporter── export JSON / MD, import, web-app, templates│
-           │  index.ts       ── full wiring + native streaming chat UI      │
+            │  ChatBridge     ── port management, jiuwen:bg event dispatch   │
+            │  SessionPicker  ── session dropdown                            │
+            │  ContextBar     ── pinned-page chips with quality signals      │
+            │  SessionExporter── export JSON / MD, import, templates        │
+            │  chat/markdown  ── rendering helpers                           │
+            │  reader/tour/privacy/search ── focused UI modules             │
+            │  index.ts       ── wiring + streaming chat state              │
            └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -160,15 +154,22 @@ jiuwenswarm-browser/
 │   │   ├── sidepanel.html          HTML shell: header (session label, + New, ⋯), session
 │   │   │                           picker, context bar, chat area, new-session form,
 │   │   │                           session-actions menu, hidden file import input
-│   │   ├── index.ts                Full wiring: DOM bindings, jiuwen:bg event handler,
-│   │   │                           native streaming chat rendering, export/import actions,
-│   │   │                           new-session form, template auto-fill
+│   │   ├── index.ts                Wiring: DOM bindings, jiuwen:bg event handler,
+│   │   │                           native streaming chat orchestration + state,
+│   │   │                           new-session form, session-actions menu
 │   │   ├── ChatBridge.ts           chrome.runtime Port "sidepanel"; reconnects on wake;
 │   │   │                           bridges UI actions to background; dispatches jiuwen:bg
+│   │   ├── chat.ts                 Pure chat-rendering helpers (formatTime, addTurnDivider,
+│   │   │                           addMessageFooter, appendSources, renderToolStatus, humanizeError)
+│   │   ├── markdown.ts             renderMarkdown (marked + DOMPurify + sanitize)
 │   │   ├── SessionPicker.ts        Dropdown rendering; session click → onSelect callback
 │   │   ├── ContextBar.ts           Chip rendering with ⚠ / PDF badge / retry / unpin
-│   │   └── SessionExporter.ts      SESSION_TEMPLATES (3); exportSessionJson,
-│   │                               exportSessionMarkdown, importSessionJson, openInWebApp
+│   │   ├── SessionExporter.ts      SESSION_TEMPLATES (3); exportSessionJson,
+│   │   │                           exportSessionMarkdown, importSessionJson
+│   │   ├── reader.ts               Agent-view (read_page) modal: openReader + back binding
+│   │   ├── tour.ts                 First-run tour: openTour, maybeShowTour + its DOM/bindings
+│   │   ├── privacy.ts              Privacy disclosure modal: openPrivacy + its close binding
+│   │   └── search.ts               Full-text search across pinned pages: openSearch + its DOM
 │   │
 │   ├── popup/                      Toolbar popup (connection status + quick actions)
 │   │   ├── popup.html
@@ -360,11 +361,17 @@ User (sidepanel)  index.ts         SessionExporter.ts    storage.ts        Brows
 | Module | Responsibility |
 |---|---|
 | `sidepanel.html` | Layout shell; header row (session label, `+ New`, `⋯`); `#session-picker` dropdown; `#pin-chips` context bar; `#chat-messages` + `#chat-input` + `#chat-send`; `#new-session-form` with template/mode selects; `#session-actions-menu` dropdown; hidden `#import-input` file input |
-| `index.ts` | Binds all DOM elements; handles `jiuwen:bg` CustomEvent switch (status, sessions, session_created, pinned, ask_selection, summarize_tab, token, done, error); native streaming chat rendering; session form open/close + template auto-fill; ⋯ menu open/close; export/import/open-in-web-app handlers; `_pendingTemplateId` for post-create prompt injection |
+| `index.ts` | Binds all DOM elements; handles `jiuwen:bg` CustomEvent switch (status, sessions, session_created, pinned, ask_selection, summarize_tab, token, done, error); native streaming chat orchestration + connection/stream state; new-session form + template auto-fill; ⋯ menu open/close; export/import handlers; `_pendingTemplateId` for post-create prompt injection |
 | `ChatBridge.ts` | Opens and maintains `chrome.runtime` port named `"sidepanel"`; re-opens on disconnect; `sendChat(text, mode, tabId)` → posts `MSG.SEND_AGENT`; `setActiveSession(id)` → posts `MSG.SET_SESSION`; `createSession(title, mode)` → posts `MSG.NEW_SESSION`; `pinCurrentTab()` → posts `MSG.PIN_TAB`; all inbound messages re-dispatched as `CustomEvent("jiuwen:bg")` on `window` |
+| `chat.ts` | Pure chat-rendering helpers: `formatTime`, `addTurnDivider(chatMessages, ts)`, `makeCopyIcon`, `addMessageFooter(el, text, ts)`, `appendSources(el, sessionId)`, `renderToolStatus(chatMessages, tool)`, `humanizeError` — take DOM/context as parameters (no module state) |
+| `markdown.ts` | `renderMarkdown(text)` — marked → DOMPurify → sanitize; returns safe HTML string |
 | `SessionPicker.ts` | Renders `<li>` per session; active session highlighted; `onSelect(id)` callback on click |
 | `ContextBar.ts` | Renders one chip per `PinnedPage`; ⚠ red border + icon if `originalLength < 200`; **PDF** badge if `pageType === "pdf"`; ↻ retry button calls `onRetry(page)`; × unpin calls `onRemove(id)` |
-| `SessionExporter.ts` | `SESSION_TEMPLATES` — 3 entries (company-research, paper-review, due-diligence); `getTemplate(id)` — lookup; `exportSessionJson(session)` — builds `ExportPackage`, downloads `.json`; `exportSessionMarkdown(session)` — renders `.md` with 800-char page previews; `importSessionJson(file, targetSessionId)` — parses `ExportPackage`, re-stamps all pages with `targetSessionId`, calls `addPinnedPage` per page; `openInWebApp(sessionId)` — loads settings, calls `chrome.tabs.create({url: \`http://${host}:${port}/#session=${sessionId}\`})` |
+| `SessionExporter.ts` | `SESSION_TEMPLATES` — 3 entries (company-research, paper-review, due-diligence); `getTemplate(id)` — lookup; `exportSessionJson(session)` — builds `ExportPackage`, downloads `.json`; `exportSessionMarkdown(session)` — renders `.md` with 800-char page previews; `importSessionJson(file, targetSessionId)` — parses `ExportPackage`, re-stamps all pages with `targetSessionId`, calls `addPinnedPage` per page |
+| `reader.ts` | Agent-view modal: `openReader(title, text, url)` + own back-button binding; shown when the agent calls `read_page` |
+| `tour.ts` | First-run tour: `openTour()`, `maybeShowTour()`; owns its own DOM refs and next/prev/skip button bindings |
+| `privacy.ts` | Privacy disclosure modal: `openPrivacy()` + own close binding |
+| `search.ts` | Full-text search across pinned pages: `openSearch(query?)` + own DOM refs and input/close bindings |
 
 ### `shared/` — cross-layer utilities
 
@@ -446,9 +453,7 @@ were already part of the protocol for the IDE plugin.
 ### JiuwenSwarm web app
 
 No web app changes are required. Sessions created by the extension are server-side
-objects, visible in the web app's session list immediately. The `openInWebApp` feature
-navigates to `http://{host}:{port}/#session={id}` — hash routing the web app already
-supports.
+objects, visible in the web app's session list immediately.
 
 ### Existing JiuwenSwarm users
 

@@ -6,7 +6,7 @@ what is not yet built. For what the extension currently does, see the
 
 ---
 
-## Collaboration and Annotations
+## Collaboration
 
 **Goal:** Make research shareable across users.
 
@@ -58,19 +58,15 @@ offer one-click re-pin.
 
 **Goal:** Extension ready for the Chrome Web Store, Chinese browser stores, and Firefox.
 
-**Goal:** Extension ready for the Chrome Web Store and Firefox.
-
 ### Chrome Web Store
 
 - Replace placeholder icons with production SVG-derived PNGs (5 required sizes)
 - Write store listing: description, screenshots, privacy policy URL
+- Capture listing screenshots and tiles per the step-by-step guide in
+  `docs/STORE_LISTING.md` (needs the built extension + local server; cannot be produced
+  from code)
 - MV3 security audit: no remote code execution, no eval
 - Test on Chrome Stable and Chrome Beta channels
-
-### Chrome Web Store Listing
-
-Write the store listing: description, screenshots, privacy policy URL. Test on
-Chrome Stable and Chrome Beta channels.
 
 ### Chinese Browser Stores
 
@@ -88,17 +84,16 @@ verified foreign-company account.
 
 ## Future Ideas
 
+> These require JiuwenSwarm server changes and cannot be completed in this repo alone.
+
 | Idea | Notes |
 |---|---|
+| **Passage-level citations** | The "wow": answers cite the *specific* passage; clicking a citation scrolls to and highlights it on the page. Needs the server to emit structured citation envelopes (cited URL + passage anchor) alongside streamed text |
+| **Deep personalization** | A sense of "my research": recent activity, resume-by-importance, cross-session memory. Needs server-side analytics / recent-activity data |
 | **Reader overlay** | Render the extracted page (the Agent's view) in a full-page overlay with chat attached |
 | **Schedule research** | Background agent runs while away; notifies with findings |
+| **Cron research jobs** | Schedule recurring research tasks; the web app already has a cron panel the extension could surface as a "monitor this topic" shortcut |
 | **Databricks / Colab adapter** | Detect notebook-like environments, extract cell outputs |
 | **Link graph** | Visualize connections between pinned pages based on shared topics |
 | **Voice input** | Web Speech API → text; the web app already has voice in/out via the shared chat iframe |
-| **Cron research jobs** | Schedule recurring research tasks; the web app has a cron panel; extension surfaces a simplified "monitor this topic" shortcut |
 | **Custom adapters** | Let users define domain-specific extraction rules for internal tools and intranets via a JSON config |
-| **Team sessions** | Requires a shared JiuwenSwarm server instance (multi-user deployment); multiple users pin pages to a shared session; pinned pages and chat sync in real time via server WebSocket broadcast |
-
-> Several earlier "future ideas" have since been implemented and are no longer listed:
-> offline re-reading, batch pin, auto-summarize on pin, and full-text search. Ideas that
-> referenced persistent page annotations were dropped when that feature was removed.

@@ -1,12 +1,5 @@
 **[Feature]: Implement a Browser Extension to Bring the JiuwenSwarm Agent into the Browser / 实现浏览器扩展，将 JiuwenSwarm 智能体带入浏览器**
 
-> **Post-approval simplifications:** This spec reflects the originally approved design.
-> Since implementation the product was simplified — the following were **removed**:
-> persistent page annotations / sticky notes, per-session notes, session **import**,
-> session **templates**, **edit-and-resend**, **regenerate**, the context-budget meter,
-> and **Open in web app**. Agent highlights are now **transient** (applied and cleared
-> within a session). See the README and USER_GUIDE for the current feature set.
-
 EN ======      
 JiuwenSwarm's agent lives in a web app, but its users work in the browser, reading web pages and switching tabs. To use the agent on anything they are reading, users must copy-paste text out of the page, lose its context, and repeat this for every tab — and the agent can neither see the page nor act on it. This feature is a Chrome extension that brings the agent into the browser: it reads the active page, holds a research session across pinned pages, and acts on the page (highlight, fill forms, scroll), while keeping the same session in the full JiuwenSwarm UI.
 
@@ -46,8 +39,8 @@ A Chrome extension (Manifest V3) with four runtime layers that connect to the ex
 
 - **Layer 1 — Background service worker.** The central hub, running separately from both the page and the side panel. Maintains the WebSocket connection, session lifecycle, page-context cache, tab tracking, right-click menu, panel opening, and a browser-native tool dispatcher.
 - **Layer 2 — Content script.** Injected into every web page; detects the page type, routes to one of eight page-type adapters, extracts text (head+tail, capped at 120,000 chars), tracks selection, and responds to highlight/scroll/fill commands from the background.
-- **Layer 3 — Side panel.** A persistent Chrome Side Panel beside the page: native streaming chat, session picker, context bar with pinned-page chips, session export/import and templates, and per-session notes.
-- **Layer 4 — Popup and options.** A toolbar connection-status popup and a settings page for the server host, port, default mode, auto-extract, and annotation toggles.
+- **Layer 3 — Side panel.** A persistent Chrome Side Panel beside the page: native streaming chat, session picker, context bar with pinned-page chips, and session export/import and templates.
+- **Layer 4 — Popup and options.** A toolbar connection-status popup and a settings page for the server host, port, default mode, and auto-extract toggles.
 
 **Browser-native agent tools** (8) dispatched by the background worker when the server sends a `tool_call` envelope:
 
@@ -87,7 +80,7 @@ New components (public additions in the `jiuwenswarm-browser` extension):
 | `ToolDispatcher` | new class (dispatch the 8 browser-native tools) |
 | `Extractor` + `PageTypeDetector` | new classes (page text extraction + type routing) |
 | 8 page-type adapters | new modules (GitHub, arXiv, SEC EDGAR, PubMed, Wikipedia, YouTube, Twitter/X, Hacker News) |
-| `ChatBridge`, `SessionPicker`, `ContextBar`, `SessionExporter`, `NoteEditor` | new side-panel components |
+| `ChatBridge`, `SessionPicker`, `ContextBar`, `SessionExporter` | new side-panel components |
 | `SharedProtocol` / message types | new module (content ↔ background ↔ side-panel wire protocol) |
 
 **Impact:** additive and opt-in (a separately installable extension). It uses the existing JiuwenSwarm WebSocket gateway protocol — the same protocol used by the IDE plugin and the web app — so **no changes to the JiuwenSwarm agent runtime or web app are required**, and no new server API surface is introduced.
@@ -96,7 +89,7 @@ New components (public additions in the `jiuwenswarm-browser` extension):
 
 - **`background/`** — `WsClient`, `SessionManager`, `ContextCache`, `TabWatcher`, `ContextMenu`, `PanelManager`, `ToolDispatcher` (extension-side only).
 - **`content/`** — `Extractor`, `PageTypeDetector`, 8 adapters, `SelectionMonitor`, `Annotator`, `FormAssist`.
-- **`sidepanel/`** — `ChatBridge`, `SessionPicker`, `ContextBar`, `SessionExporter`, `NoteEditor`, native chat.
+- **`sidepanel/`** — `ChatBridge`, `SessionPicker`, `ContextBar`, `SessionExporter`, `chat`, `markdown`, `reader`, `tour`, `privacy`, `search`, native chat.
 - **`popup/` + `options/`** — connection status and settings.
 - **`shared/`** — types, protocol, storage, constants shared across the three contexts.
 - **JiuwenSwarm server** — intentionally unchanged; sessions created by the extension are stored server-side and immediately visible in the web app because both share the same server.
@@ -145,7 +138,7 @@ A Chrome extension with four runtime layers:
 
 - **Background service worker** — WebSocket client, session manager, page-context cache, tab watcher, right-click menu, panel manager, and an 8-tool browser-native dispatcher.
 - **Content script** — page-type detection with 8 adapters + Readability fallback, extraction capped at 120,000 chars, selection monitoring, passage highlighting, and form-fill/scroll handlers.
-- **Side panel** — native streaming chat, session picker, pinned-page context bar, session export/import and templates, and per-session notes.
+- **Side panel** — native streaming chat, session picker, pinned-page context bar, and session export/import and templates.
 - **Popup + options** — connection status and server/settings configuration.
 
 ```mermaid

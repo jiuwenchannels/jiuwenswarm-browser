@@ -115,8 +115,9 @@ src/
 │                 adapters (GitHub / arXiv / SEC / PubMed / Wikipedia /
 │                 YouTube / Twitter / HackerNews / generic),
 │                 SelectionMonitor, Annotator, FormAssist
-├── sidepanel/    Side panel UI: ChatBridge, SessionPicker, ContextBar,
-│                 SessionExporter (export)
+├── sidepanel/    Side panel UI: index.ts (chat + wiring) and focused modules
+│                 ChatBridge, SessionPicker, ContextBar, SessionExporter,
+│                 chat, markdown, reader, tour, privacy, search
 ├── popup/        Toolbar popup: connection status, quick actions
 ├── options/      Settings page: host/port, behaviour toggles
 └── webview/      chat.html (shared with jiuwenswarm-jupyterlab)

@@ -1,13 +1,5 @@
 # Requirements Analysis — jiuwenswarm-browser
 
-> **Post-approval simplifications:** This requirements analysis reflects the originally
-> approved scope. Since implementation the product was simplified — the following were
-> **removed**: persistent page annotations / sticky notes, per-session notes, session
-> **import**, session **templates**, **edit-and-resend**, **regenerate**, the
-> context-budget meter, and **Open in web app**. Agent highlights are now **transient**
-> (applied and cleared within a session). See the README and USER_GUIDE for the current
-> feature set.
-
 ---
 
 ## Source of Demand
@@ -171,9 +163,8 @@ The side panel is the user's primary interaction surface.
 | Chat with the agent | `ChatBridge` + native rendering | Port-based bridge to background; native streaming chat (no iframe) |
 | Session picker | `SessionPicker` | Dropdown showing all research sessions; click to switch |
 | Context bar with pinned-page chips | `ContextBar` | Chip per pinned page with ⚠ warning, PDF badge, and retry button |
-| Session export and import | `SessionExporter` | Download JSON (re-importable) or Markdown; import JSON; open in web app |
+| Session export and import | `SessionExporter` | Download JSON (re-importable) or Markdown; import JSON |
 | Session templates | `SessionExporter.SESSION_TEMPLATES` | Pre-built starters: Company Research, Paper Review, Due Diligence |
-| Session notes | `NoteEditor` | Freeform markdown note per session, auto-saved with debounce; included in the agent context block |
 | New session form | `index.ts` | Inline form with name, template selector, mode selector, and hint text |
 
 ---
@@ -183,7 +174,7 @@ The side panel is the user's primary interaction surface.
 | Capability | Component | Description |
 |---|---|---|
 | Connection status indicator | `popup/` | Toolbar popup: WebSocket status dot, quick "Open panel" button |
-| Extension settings | `options/` | Configure server host, port, default mode, auto-extract, show-annotations toggles |
+| Extension settings | `options/` | Configure server host, port, default mode, auto-extract toggles |
 
 ---
 
@@ -215,8 +206,9 @@ The side panel is the user's primary interaction surface.
 | Chat bridge (sidepanel ↔ background) | `sidepanel/ChatBridge.ts` |
 | Session picker dropdown | `sidepanel/SessionPicker.ts` |
 | Context bar with chip quality signals | `sidepanel/ContextBar.ts` |
-| Session export / import / web-app | `sidepanel/SessionExporter.ts` |
-| Session notes | `sidepanel/NoteEditor.ts` |
+| Session export / import | `sidepanel/SessionExporter.ts` |
+| Chat rendering helpers | `sidepanel/chat.ts`, `sidepanel/markdown.ts` |
+| Reader / tour / privacy / search | `sidepanel/reader.ts`, `tour.ts`, `privacy.ts`, `search.ts` |
 | Side panel wiring and native chat | `sidepanel/index.ts`, `sidepanel/sidepanel.html` |
 | Toolbar popup | `popup/` |
 | Settings page | `options/` |

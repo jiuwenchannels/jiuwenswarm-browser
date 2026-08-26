@@ -35,6 +35,13 @@ import {
   exportSessionJson,
   exportSessionMarkdown,
 } from "./SessionExporter";
+import {
+  addTurnDivider,
+  addMessageFooter,
+  appendSources,
+  renderToolStatus,
+  humanizeError,
+} from "./chat";
 
 const log = createLogger("sidepanel");
 
@@ -209,7 +216,7 @@ function handleBgMsg(msg: BackgroundReply): void {
 
     case "tool": {
       const m = msg as Extract<BackgroundReply, { action: "tool" }>;
-      renderToolStatus(m.tool);
+      renderToolStatus(chatMessages, m.tool);
       break;
     }
 
@@ -473,7 +480,7 @@ function renderHistoryUser(text: string, ts: number): void {
   const body = document.createElement("div");
   body.textContent = text;
   el.appendChild(body);
-  _addMessageFooter(el, text, ts);
+  addMessageFooter(el, text, ts);
   chatMessages.appendChild(el);
 }
 
@@ -481,7 +488,7 @@ function renderHistoryAssistant(text: string, ts: number): void {
   const el = document.createElement("div");
   el.className = "msg assistant";
   el.innerHTML = renderMarkdown(text);
-  _addMessageFooter(el, text, ts);
+  addMessageFooter(el, text, ts);
   chatMessages.appendChild(el);
 }
 
@@ -685,32 +692,17 @@ async function refreshSuggestions(): Promise<void> {
   }
 }
 
-function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function addTurnDivider(ts: number): void {
-  const last = chatMessages.lastElementChild;
-  // Only add a divider when there was a prior completed turn in this session.
-  if (last && last.className !== "msg-turn-divider") {
-    const d = document.createElement("div");
-    d.className = "msg-turn-divider";
-    d.textContent = formatTime(ts);
-    chatMessages.appendChild(d);
-  }
-}
-
 function renderUserMessage(text: string): void {
   _chatStarted = true;
   chatEmpty.style.display = "none";
   _lastTurnStart = Date.now();
-  addTurnDivider(_lastTurnStart);
+  addTurnDivider(chatMessages, _lastTurnStart);
   _lastUserEl = document.createElement("div");
   _lastUserEl.className = "msg user";
   const body = document.createElement("div");
   body.textContent = text;
   _lastUserEl.appendChild(body);
-  _addMessageFooter(_lastUserEl, text, _lastTurnStart);
+  addMessageFooter(_lastUserEl, text, _lastTurnStart);
   chatMessages.appendChild(_lastUserEl);
   updateChatStatus();
   chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -765,8 +757,8 @@ function endTurn(finalText?: string): void {
     if (finalText) _assistantRaw = finalText;
     _assistantEl.classList.remove("thinking");
     _assistantEl.innerHTML = renderMarkdown(_assistantRaw);
-    _appendSources(_assistantEl);
-    _addMessageFooter(_assistantEl, _assistantRaw, Date.now());
+    appendSources(_assistantEl, _activeSessionId);
+    addMessageFooter(_assistantEl, _assistantRaw, Date.now());
     _assistantEl = null;
   }
   _streaming = false;
@@ -785,59 +777,6 @@ function endTurn(finalText?: string): void {
   }
 }
 
-/** Make a small copy icon button (copies the message text on click). */
-function _makeCopyIcon(text: string): HTMLButtonElement {
-  const btn = document.createElement("button");
-  btn.className = "msg-copy-icon";
-  btn.title = t("msg.copy");
-  btn.textContent = "⧉";
-  btn.addEventListener("click", async (e) => {
-    e.stopPropagation();
-    await navigator.clipboard.writeText(text);
-    btn.textContent = "✓";
-    window.setTimeout(() => {
-      btn.textContent = "⧉";
-    }, 1200);
-  });
-  return btn;
-}
-
-/** Append a bottom row with the timestamp (left) and the copy icon (right). */
-function _addMessageFooter(el: HTMLElement, text: string, tsValue: number): void {
-  const footer = document.createElement("div");
-  footer.className = "msg-footer";
-  const time = document.createElement("span");
-  time.className = "msg-ts";
-  time.textContent = formatTime(tsValue);
-  footer.appendChild(time);
-  footer.appendChild(_makeCopyIcon(text));
-  el.appendChild(footer);
-}
-
-function _appendSources(el: HTMLElement): void {
-  if (!_activeSessionId) return;
-  getPinnedPagesBySession(_activeSessionId).then((pages) => {
-    if (pages.length === 0) return;
-    const wrap = document.createElement("div");
-    wrap.className = "msg-sources";
-    const label = document.createElement("span");
-    label.style.cssText = "font-size:10px;color:var(--text-dim);align-self:center;";
-    label.textContent = t("msg.sources");
-    wrap.appendChild(label);
-    for (const page of pages.slice(0, 8)) {
-      const chip = document.createElement("button");
-      chip.className = "src-chip";
-      chip.textContent = page.context.title || page.context.url;
-      chip.title = page.context.url;
-      chip.addEventListener("click", () => {
-        chrome.tabs.create({ url: page.context.url });
-      });
-      wrap.appendChild(chip);
-    }
-    el.appendChild(wrap);
-  }).catch(() => {});
-}
-
 function renderError(message: string): void {
   chatEmpty.style.display = "none";
   const el = document.createElement("div");
@@ -847,51 +786,11 @@ function renderError(message: string): void {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-/** Render a small inline chip when the agent acts on the page (tool visibility). */
-function renderToolStatus(tool: string): void {
-  const labels: Record<string, string> = {
-    highlight_text: t("tool.highlight"),
-    scroll_to: t("tool.scroll"),
-    fill_form: t("tool.fill"),
-    take_screenshot: t("tool.screenshot"),
-    open_url: t("tool.open"),
-    read_page: t("tool.read"),
-    pin_page: t("tool.pin"),
-    get_selection: t("tool.selection"),
-  };
-  const text = labels[tool] ?? t("tool.default");
-  const chip = document.createElement("div");
-  chip.className = "tool-chip";
-  chip.textContent = `⚙ ${text}`;
-  chatMessages.appendChild(chip);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-  // Remove after a short delay so it doesn't accumulate.
-  window.setTimeout(() => chip.remove(), 2500);
-}
-
 let _toastTimer: number | null = null;
 function showToast(text: string): void {  toastEl.textContent = text;
   toastEl.classList.add("show");
   if (_toastTimer != null) window.clearTimeout(_toastTimer);
   _toastTimer = window.setTimeout(() => toastEl.classList.remove("show"), 2200);
-}
-
-/** Turn raw server errors into plain-language messages with a next step. */
-function humanizeError(raw: string): string {
-  const lower = raw.toLowerCase();
-  if (lower.includes("websocket") || lower.includes("socket") || lower.includes("handshake")) {
-    return t("err.websocket");
-  }
-  if (lower.includes("extract page context") || lower.includes("extraction")) {
-    return t("err.extraction");
-  }
-  if (lower.includes("maximum") || lower.includes("limit")) {
-    return raw;
-  }
-  if (lower.includes("timeout") || lower.includes("timed out")) {
-    return t("err.timeout");
-  }
-  return raw;
 }
 
 function _sendUserMessage(text: string): void {
