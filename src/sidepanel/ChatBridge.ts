@@ -17,23 +17,60 @@ export class ChatBridge {
   private _sessionId: string | null = null;
 
   connect(): void {
-    this._port = chrome.runtime.connect({ name: "sidepanel" });
+    if (this._port) {
+      try {
+        this._port.disconnect();
+      } catch {
+        /* ignore */
+      }
+      this._port = null;
+    }
+    try {
+      this._port = chrome.runtime.connect({ name: "sidepanel" });
+    } catch (e) {
+      log.warn("port connect failed", e);
+      this._port = null;
+    }
+    if (!this._port) {
+      this._scheduleReconnect();
+      return;
+    }
 
     this._port.onMessage.addListener((msg: Record<string, unknown>) => {
       window.dispatchEvent(new CustomEvent("jiuwen:bg", { detail: msg }));
     });
 
     this._port.onDisconnect.addListener(() => {
-      log.warn("port disconnected — will reconnect on next message");
+      // MV3 terminates the service worker when idle, invalidating this port.
+      // The panel stays open, so reconnect and re-sync on our own.
+      log.warn("port disconnected — reconnecting");
       this._port = null;
+      this._scheduleReconnect();
     });
 
     log.info("bridge connected");
 
-    // Request initial state
+    // Request initial state (including any queued context-menu action).
     this._send({ action: MSG.GET_STATUS });
     this._send({ action: MSG.LIST_SESSIONS });
     this._send({ action: MSG.GET_PENDING_ACTION });
+  }
+
+  /** Reconnect if needed, then re-pull status, sessions, and any pending action. */
+  refresh(): void {
+    if (!this._port) {
+      this.connect();
+      return;
+    }
+    this._send({ action: MSG.GET_STATUS });
+    this._send({ action: MSG.LIST_SESSIONS });
+    this._send({ action: MSG.GET_PENDING_ACTION });
+  }
+
+  private _scheduleReconnect(): void {
+    window.setTimeout(() => {
+      if (!this._port) this.connect();
+    }, 500);
   }
 
   setActiveSession(sessionId: string): void {

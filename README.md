@@ -52,8 +52,7 @@ as a popup window — all features work identically.
 - **Chat history** — messages carry timestamps and turns are separated for easy reading
 - **Batch pin** — pin all open tabs in the current window to a session at once (⋯ menu)
 - **Full-text search** — search across all pinned pages and session notes from the ⋯ menu
-- **Reading mode** — open the active page's extracted text in a clean, distraction-free
-  reader view from the ⋯ menu
+- **Agent's view** — see exactly what the agent reads: open the active page's extracted text in a clean view from the ⋯ menu or right-click menu
 - **Offline re-reading** — the last agent answer is cached and shown when the server is
   unreachable
 - **Auto-summarize on pin** — optional setting that requests a short summary each time you pin

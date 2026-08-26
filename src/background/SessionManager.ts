@@ -27,8 +27,19 @@ export class SessionManager {
   private _sessions: ResearchSession[] = [];
   private _activeSessionId: string | null = null;
   private _listeners: Set<ChangeListener> = new Set();
+  private _ready!: Promise<void>;
+  private _resolveReady!: () => void;
 
-  constructor(private readonly _client: WsClient) {}
+  constructor(private readonly _client: WsClient) {
+    this._ready = new Promise((res) => {
+      this._resolveReady = res;
+    });
+  }
+
+  /** Resolves once the active-session pointer has been loaded from storage. */
+  get ready(): Promise<void> {
+    return this._ready;
+  }
 
   get sessions(): ResearchSession[] {
     return this._sessions;
@@ -49,6 +60,7 @@ export class SessionManager {
   async init(): Promise<void> {
     this._activeSessionId = await loadActiveSessionId();
     log.info("init, active pointer=", this._activeSessionId);
+    this._resolveReady();
     this._notify();
   }
 

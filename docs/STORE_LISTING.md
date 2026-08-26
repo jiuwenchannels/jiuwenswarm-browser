@@ -90,7 +90,7 @@ Capture from the built extension (light and dark mode) at 1280×800.
 4. **Full-text search** modal (**⋯ → 🔍 Search pinned pages**) with results.
 5. **Batch pin / reorder / undo** — context-bar interactions.
 6. **Settings** page showing the **auto-summarize** toggle.
-7. **Reading mode** (**⋯ → 📖 Reading mode**) — the clean reader view.
+7. **Agent's view** (**⋯ → 👁 Agent's view**) — the clean view of the text the agent reads.
 8. Same as #1 in **dark mode** (toggle OS color scheme).
 
 ### Delivery

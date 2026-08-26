@@ -21,6 +21,7 @@ export const STORAGE_KEYS = {
   NOTES: "jiuwen_notes",
   HAS_SEEN_TOUR: "jiuwen_has_seen_tour",
   LAST_RESPONSE: "jiuwen_last_response",
+  CHAT_HISTORY: "jiuwen_chat_history",
 } as const;
 
 /** Maximum number of pages that can be pinned in one research session */

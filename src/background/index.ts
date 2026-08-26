@@ -16,7 +16,7 @@
 import { createLogger } from "@shared/logger";
 import { MSG, MAX_CONTEXT_CHARS, COMMANDS, MAX_PINNED_PAGES } from "@shared/constants";
 import { addPinnedPage, getPinnedPagesBySession, removePinnedPage } from "@shared/storage";
-import { loadAnnotationsByUrl, updateAnnotationNote, removeAnnotation } from "@shared/annotations";
+import { loadAnnotationsByUrl, updateAnnotationNote, removeAnnotation, normalizeUrl } from "@shared/annotations";
 import { PinnedPage, PageContext } from "@shared/types";
 import { nanoid } from "nanoid";
 
@@ -38,7 +38,7 @@ const client = new WsClient();
 const cache = new ContextCache();
 const sessionMgr = new SessionManager(client);
 const tabWatcher = new TabWatcher(cache);
-const contextMenu = new ContextMenu(onContextMenuAction);
+const contextMenu = new ContextMenu(onContextMenuAction, isUrlPinned);
 const toolDispatcher = new ToolDispatcher(client, cache, tabWatcher, sessionMgr);
 
 // Surface agent tool activity to the side panel (tool-action visibility).
@@ -463,7 +463,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 // ---------------------------------------------------------------------------
 
 async function onContextMenuAction(
-  action: "ask" | "pin" | "summarize",
+  action: "ask" | "toggle_pin" | "summarize" | "reader" | "search_selection",
   info: chrome.contextMenus.OnClickData,
   tab?: chrome.tabs.Tab
 ): Promise<void> {
@@ -474,11 +474,60 @@ async function onContextMenuAction(
 
   if (action === "ask" && info.selectionText) {
     _deliverAction({ action: "ask_selection", text: info.selectionText, tabId });
-  } else if (action === "pin" && tabId != null) {
-    _deliverAction({ action: MSG.PIN_TAB, tabId });
+  } else if (action === "toggle_pin" && tabId != null) {
+    const pinned = await isUrlPinned(tab?.url || "");
+    if (pinned) {
+      await unpinCurrentUrl(tab?.url);
+    } else {
+      await pinTabFromMenu(tabId);
+    }
   } else if (action === "summarize" && tabId != null) {
     _deliverAction({ action: "summarize_tab", tabId });
+  } else if (action === "reader") {
+    _deliverAction({ action: "reader" });
+  } else if (action === "search_selection" && info.selectionText) {
+    _deliverAction({ action: "search_selection", text: info.selectionText });
   }
+}
+
+/** Remove any pinned page in the active session whose URL matches the given URL. */
+async function unpinCurrentUrl(url?: string): Promise<void> {
+  await sessionMgr.ready;
+  const sessionId = sessionMgr.activeSessionId;
+  if (!sessionId || !url) return;
+  const norm = normalizeUrl(url);
+  const pages = await getPinnedPagesBySession(sessionId);
+  const toRemove = pages.filter((p) => normalizeUrl(p.context.url) === norm);
+  for (const p of toRemove) {
+    await removePinnedPage(p.id);
+  }
+  if (toRemove.length > 0) {
+    await updatePinBadge();
+    broadcastToSidePanel({ action: "refresh_pins" });
+  }
+}
+
+/** True when the given URL is pinned in the active session. */
+async function isUrlPinned(url: string): Promise<boolean> {
+  await sessionMgr.ready;
+  const sessionId = sessionMgr.activeSessionId;
+  if (!sessionId || !url) return false;
+  const norm = normalizeUrl(url);
+  const pages = await getPinnedPagesBySession(sessionId);
+  return pages.some((p) => normalizeUrl(p.context.url) === norm);
+}
+
+/** Pin the given tab to the active session directly in the background, notifying the panel. */
+async function pinTabFromMenu(tabId: number): Promise<void> {
+  await sessionMgr.ready;
+  const sessionId = sessionMgr.activeSessionId;
+  if (!sessionId) return;
+  const existing = await getPinnedPagesBySession(sessionId);
+  if (existing.length >= MAX_PINNED_PAGES) return;
+  const pinned = await pinTabToSession(tabId, sessionId);
+  if (!pinned) return;
+  await updatePinBadge();
+  broadcastToSidePanel({ action: "pinned", page: pinned });
 }
 
 /**

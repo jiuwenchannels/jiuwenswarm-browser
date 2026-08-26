@@ -39,7 +39,7 @@ Three ways to open it:
 |---|---|
 | Keyboard shortcut | **Ctrl+Shift+J** (Mac: **Cmd+Shift+J**) |
 | Toolbar icon | Click the JiuwenSwarm icon → **Open panel** |
-| Right-click menu | Right-click any page → **Summarize this page** or **Pin this page** |
+| Right-click menu | Right-click any page → **Pin this page**, **Unpin this page**, **Summarize this page**, or **Agent's view of this page** |
 
 > **First time?** A short 3-step tour explains the core loop the first time you open
 > the panel. You can replay it anytime from the **⋯** menu → **Getting-started tour**.
@@ -71,7 +71,7 @@ context. The agent will use it when answering your questions.
 **Methods:**
 - **Keyboard:** Press **Ctrl+Shift+P** (Mac: **Cmd+Shift+P**) on any tab.
 - **Button:** Open the side panel → click **📌 Pin page** (hover it to see the shortcut).
-- **Right-click:** Right-click the page → **Pin this page to research session**.
+- **Right-click:** Right-click the page → **Pin this page** (or **Unpin this page** to remove it from the session).
 
 > If you haven't created a session yet, pinning opens the **+ New** form first — create
 > a session, then pin. The same happens if you try to send a message with no active
@@ -185,6 +185,8 @@ The side panel opens and pre-fills the chat input with your selection quoted —
 ready for you to add a question.
 
 Alternatively: select text → right-click → **Ask JiuwenSwarm about "..."**
+
+To look for text across your pinned pages: select text → right-click → **Search pinned pages for "…"**. The panel's full-text search opens pre-filled with your selection and runs immediately.
 
 ### Summarize a Page
 
@@ -347,9 +349,9 @@ Click **⋯** → **🔍 Search pinned pages** to search across every pinned pag
 
 The last agent answer is cached locally. If the JiuwenSwarm server is unreachable when you open the panel, the cached answer is shown with a "(cached — server offline)" label so you can still re-read your last research.
 
-### Reading Mode
+### Agent's View of a Page
 
-Click **⋯** → **📖 Reading mode** to read the active page's extracted content in a clean, distraction-free reader view inside the panel — no ads, nav, or clutter. Use **Open original** to jump to the real page, or **← Back** to return to the chat.
+Click **⋯** → **👁 Agent's view**, or right-click any page → **Agent's view of this page**, to read the exact text the agent extracts from the active page — a clean, distraction-free view of what JiuwenSwarm actually reads. Use **← Back** to return to the chat.
 
 ### Session Persistence
 

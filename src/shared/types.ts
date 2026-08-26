@@ -66,6 +66,13 @@ export interface ResearchSession {
   pinnedPageIds: string[];
 }
 
+/** One message in a locally-persisted chat history. */
+export interface ChatEntry {
+  role: "user" | "assistant";
+  text: string;
+  ts: number;
+}
+
 // ---------------------------------------------------------------------------
 // Extension settings
 // ---------------------------------------------------------------------------

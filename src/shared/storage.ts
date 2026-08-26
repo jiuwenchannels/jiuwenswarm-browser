@@ -12,6 +12,7 @@ import {
   DEFAULT_SETTINGS,
   ExtensionSettings,
   PinnedPage,
+  ChatEntry,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -118,4 +119,26 @@ export async function saveLastResponse(text: string): Promise<void> {
 export async function loadLastResponse(): Promise<{ text: string; savedAt: string } | null> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.LAST_RESPONSE);
   return (result[STORAGE_KEYS.LAST_RESPONSE] as { text: string; savedAt: string } | undefined) ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// Chat history (per session)
+// ---------------------------------------------------------------------------
+
+const MAX_HISTORY = 200;
+
+export async function loadChatHistory(sessionId: string): Promise<ChatEntry[]> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.CHAT_HISTORY);
+  const map = (result[STORAGE_KEYS.CHAT_HISTORY] as Record<string, ChatEntry[]>) ?? {};
+  return map[sessionId] ?? [];
+}
+
+export async function saveChatHistory(
+  sessionId: string,
+  entries: ChatEntry[]
+): Promise<void> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.CHAT_HISTORY);
+  const map = (result[STORAGE_KEYS.CHAT_HISTORY] as Record<string, ChatEntry[]>) ?? {};
+  map[sessionId] = entries.slice(-MAX_HISTORY);
+  await chrome.storage.local.set({ [STORAGE_KEYS.CHAT_HISTORY]: map });
 }

@@ -15,10 +15,12 @@ import {
   loadSettings,
   saveLastResponse,
   loadLastResponse,
+  loadChatHistory,
+  saveChatHistory,
   hasSeenTour,
   markTourSeen,
 } from "@shared/storage";
-import { PinnedPage, ResearchSession } from "@shared/types";
+import { PinnedPage, ResearchSession, ChatEntry } from "@shared/types";
 import { MSG } from "@shared/constants";
 import { loadAnnotationsBySession } from "@shared/annotations";
 import { initI18n, applyStaticI18n, t } from "@shared/i18n";
@@ -111,7 +113,6 @@ const importInput     = document.getElementById("import-input") as HTMLInputElem
 // Reading-mode overlay
 const readerEl        = document.getElementById("reader")!;
 const readerBack      = document.getElementById("reader-back")!;
-const readerOpen      = document.getElementById("reader-open") as HTMLAnchorElement;
 const readerContent   = document.getElementById("reader-content")!;
 
 // Privacy modal
@@ -144,6 +145,8 @@ applyStaticI18n();
 let _sessions: ResearchSession[] = [];
 let _activeSessionId: string | null = null;
 let _settings: Awaited<ReturnType<typeof loadSettings>> | null = null;
+let _chatHistory: ChatEntry[] = [];
+let _renderedSessionId: string | null = null;
 
 // Template whose starting prompt should be injected after the session is created.
 // Stored here because createSession is async via round-trip to background.
@@ -227,7 +230,10 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       const activeId = msg.activeId as string | null;
       _activeSessionId = activeId;
       picker.update(_sessions, activeId);
-      if (activeId) loadPinnedPages(activeId);
+      if (activeId) {
+        loadPinnedPages(activeId);
+        renderSessionChatIfNeeded(activeId);
+      }
       noteEditor.setSession(activeId).catch(() => {});
       renderAnnotations();
       break;
@@ -239,6 +245,7 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       _activeSessionId = session.id;
       picker.update(_sessions, session.id);
       loadPinnedPages(session.id);
+      renderSessionChatIfNeeded(session.id);
       noteEditor.setSession(session.id).catch(() => {});
       renderAnnotations();
 
@@ -258,7 +265,10 @@ function handleBgMsg(msg: Record<string, unknown>): void {
     case "session_changed": {
       const activeId = msg.activeId as string | null;
       _activeSessionId = activeId;
-      if (activeId) loadPinnedPages(activeId);
+      if (activeId) {
+        loadPinnedPages(activeId);
+        renderSessionChatIfNeeded(activeId);
+      }
       noteEditor.setSession(activeId).catch(() => {});
       renderAnnotations();
       break;
@@ -278,6 +288,11 @@ function handleBgMsg(msg: Record<string, unknown>): void {
       break;
     }
 
+    case "refresh_pins": {
+      if (_activeSessionId) loadPinnedPages(_activeSessionId);
+      break;
+    }
+
     case "ask_selection":
       _contextTabId = (msg.tabId as number) ?? null;
       chatInput.value = `> "${msg.text}"\n\n`;
@@ -287,10 +302,17 @@ function handleBgMsg(msg: Record<string, unknown>): void {
 
     case "summarize_tab":
       _contextTabId = (msg.tabId as number) ?? null;
-      chatInput.value =
-        "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point.";
-      chatInput.dispatchEvent(new Event("input"));
-      chatInput.focus();
+      _sendUserMessage(
+        "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point."
+      );
+      break;
+
+    case "reader":
+      openReadingMode();
+      break;
+
+    case "search_selection":
+      openSearch(msg.text as string);
       break;
   }
 }
@@ -439,20 +461,21 @@ async function openReadingMode(): Promise<void> {
       readerContent.innerHTML = `<div id="reader-error">${t("reader.error")}</div>`;
       return;
     }
-    readerOpen.href = ctx.url;
-    readerOpen.style.display = "";
-    const article = document.createElement("article");
-    article.id = "reader-article";
+    const article = document.createElement("article");    article.id = "reader-article";
     const h1 = document.createElement("h1");
     h1.textContent = ctx.title || ctx.url;
     const meta = document.createElement("div");
     meta.className = "reader-meta";
     meta.textContent = `${ctx.url} · ${ctx.pageType}`;
+    const note = document.createElement("div");
+    note.className = "reader-note";
+    note.textContent = t("reader.note");
     const body = document.createElement("div");
     body.className = "reader-body";
     body.textContent = ctx.text || "—";
     article.appendChild(h1);
     article.appendChild(meta);
+    article.appendChild(note);
     article.appendChild(body);
     readerContent.innerHTML = "";
     readerContent.appendChild(article);
@@ -601,6 +624,69 @@ async function loadPinnedPages(sessionId: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Chat history (persisted per session, reloaded on reopen / switch)
+// ---------------------------------------------------------------------------
+
+function persistChatHistory(): void {
+  if (!_activeSessionId) return;
+  saveChatHistory(_activeSessionId, _chatHistory).catch(() => {});
+}
+
+function renderHistoryUser(text: string, ts: number): void {
+  const el = document.createElement("div");
+  el.className = "msg user";
+  const body = document.createElement("div");
+  body.textContent = text;
+  const time = document.createElement("span");
+  time.className = "msg-ts";
+  time.textContent = formatTime(ts);
+  el.appendChild(body);
+  el.appendChild(time);
+  chatMessages.appendChild(el);
+}
+
+function renderHistoryAssistant(text: string, ts: number): void {
+  const el = document.createElement("div");
+  el.className = "msg assistant";
+  el.innerHTML = renderMarkdown(text);
+  const time = document.createElement("span");
+  time.className = "msg-ts";
+  time.textContent = formatTime(ts);
+  el.appendChild(time);
+  chatMessages.appendChild(el);
+}
+
+async function loadSessionChat(sessionId: string): Promise<void> {
+  _chatHistory = await loadChatHistory(sessionId);
+  // Clear any live-rendered messages but keep the empty-state node.
+  Array.from(chatMessages.children).forEach((c) => {
+    if (c.id !== "chat-empty") c.remove();
+  });
+  _lastUserEl = null;
+  _lastAssistantEl = null;
+  _assistantRaw = "";
+  _chatStarted = _chatHistory.length > 0;
+  chatEmpty.style.display = _chatStarted ? "none" : "";
+  for (const entry of _chatHistory) {
+    if (entry.role === "user") {
+      renderHistoryUser(entry.text, entry.ts);
+    } else {
+      renderHistoryAssistant(entry.text, entry.ts);
+    }
+  }
+  if (_chatHistory.length > 0) {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+}
+
+/** Render a session's history once, unless it is already showing. */
+async function renderSessionChatIfNeeded(sessionId: string): Promise<void> {
+  if (_renderedSessionId === sessionId) return;
+  _renderedSessionId = sessionId;
+  await loadSessionChat(sessionId);
+}
+
+// ---------------------------------------------------------------------------
 // Saved highlights (annotations) panel
 // ---------------------------------------------------------------------------
 
@@ -722,16 +808,38 @@ let _lastAssistantEl: HTMLDivElement | null = null;
 let _lastTurnStart = 0;
 /** Tab the last "summarize this page" / "ask selection" action targeted. */
 let _contextTabId: number | null = null;
+let _connBannerTimer: number | null = null;
 
 function setConnected(connected: boolean): void {
   _connected = connected;
   statusDot.classList.toggle("connected", connected);
   chatEmptySub.textContent = connected ? t("empty.ready") : t("empty.waiting");
   chatEmptyTitle.textContent = connected ? t("empty.title.ready") : t("empty.title.waiting");
-  connBanner.classList.toggle("show", !connected);
   connBannerText.textContent = t("conn.lost");
+  if (connected) {
+    // Clear any pending "lost connection" debounce.
+    if (_connBannerTimer != null) {
+      window.clearTimeout(_connBannerTimer);
+      _connBannerTimer = null;
+    }
+    connBanner.classList.remove("show");
+  } else {
+    // Debounce: only show the banner if still disconnected after a few seconds,
+    // so MV3 service-worker suspension doesn't flash "Lost connection" on every
+    // idle drop even though the server is fine.
+    if (_connBannerTimer == null) {
+      _connBannerTimer = window.setTimeout(() => {
+        _connBannerTimer = null;
+        connBanner.classList.add("show");
+        // Nudge a reconnect in case the background's own backoff stalled.
+        bridge.reconnect();
+      }, 3000);
+    }
+  }
   chatInput.disabled = !connected || _streaming;
   chatSend.disabled = !connected || _streaming || !chatInput.value.trim();
+  chatSend.hidden = _streaming;
+  stopBtn.hidden = !_streaming;
   if (connected) {
     refreshSuggestions();
   } else {
@@ -847,6 +955,8 @@ function renderUserMessage(text: string): void {
   _lastUserEl.appendChild(ts);
   chatMessages.appendChild(_lastUserEl);
   chatMessages.scrollTop = chatMessages.scrollHeight;
+  _chatHistory.push({ role: "user", text, ts: _lastTurnStart });
+  persistChatHistory();
 }
 
 /** Load the last question back into the input and drop the last turn for editing. */
@@ -917,11 +1027,17 @@ function endTurn(finalText?: string): void {
   _streaming = false;
   _stopRequested = false;
   stopBtn.hidden = true;
+  chatSend.hidden = false;
   chatInput.disabled = !_connected;
   chatSend.disabled = !_connected || !chatInput.value.trim();
   chatInput.focus();
   // Cache the last answer for offline re-reading.
   if (_assistantRaw.trim()) saveLastResponse(_assistantRaw.trim()).catch(() => {});
+  // Persist the assistant turn into chat history.
+  if (_assistantRaw.trim()) {
+    _chatHistory.push({ role: "assistant", text: _assistantRaw.trim(), ts: Date.now() });
+    persistChatHistory();
+  }
 }
 
 function _makeMessageTools(): HTMLElement {
@@ -1056,6 +1172,7 @@ function _sendUserMessage(text: string): void {
   _stopRequested = false;
   chatInput.disabled = true;
   chatSend.disabled = true;
+  chatSend.hidden = true;
   stopBtn.hidden = false;
   beginAssistantTurn();
   bridge.sendChat(text, _contextTabId ?? undefined, noteEditor.getNoteText() || undefined);
@@ -1146,11 +1263,12 @@ function closePrivacy(): void {
 // Full-text search across pinned pages and session notes
 // ---------------------------------------------------------------------------
 
-function openSearch(): void {
-  searchInput.value = "";
+function openSearch(initialQuery?: string): void {
+  searchInput.value = initialQuery ?? "";
   searchResults.innerHTML = "";
   searchEl.classList.add("open");
   searchInput.focus();
+  if (initialQuery) runSearch();
 }
 
 function closeSearch(): void {
@@ -1253,5 +1371,10 @@ async function maybeShowTour(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 bridge.connect();
+// Re-sync (and pull any queued context-menu action) whenever the panel regains focus.
+window.addEventListener("focus", () => bridge.refresh());
+// Keep the service worker (and its WebSocket) alive while the panel is open, so
+// MV3 suspension doesn't drop the connection and show a false "Lost connection".
+setInterval(() => bridge.refresh(), 20000);
 maybeShowTour().catch(() => {});
 log.info("side panel ready");
