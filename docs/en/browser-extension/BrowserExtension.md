@@ -27,7 +27,7 @@ as a popup window — all features work identically.
   programmatically — without the user needing to trigger these actions manually
 - **Extraction quality signals** — character count per chip, warning on low-yield pages,
   PDF badge, and a retry button for failed extractions
-- **Shared chat UI** — same `chat.html` webview used by the IDE plugin and JupyterLab extension
+- **Rich chat UI** — the chat renders in a dedicated `chat.html` webview
 - **Keyboard shortcuts** — open/close panel, pin current tab, ask about selection
 - **Right-click context menu** — ask about selection, pin page, summarize page
 - **SPA navigation detection** — re-extracts context on URL change without a full reload
@@ -119,13 +119,12 @@ src/
 │                 chat, markdown, reader, tour, privacy, search
 ├── popup/        Toolbar popup: connection status, quick actions
 ├── options/      Settings page: host/port, behaviour toggles
-└── webview/      chat.html (shared with jiuwenswarm-jupyterlab)
+└── webview/      chat.html (webview chat UI)
 ```
 
 ---
 
 ## Related Packages
 
-- `jiuwenswarm-jupyterlab` — JupyterLab extension
 - `jiuwenswarm-ide` — VS Code / JetBrains IDE plugin
 - `agent-core` — JiuwenSwarm Python server and agent runtime

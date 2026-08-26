@@ -20,18 +20,13 @@ cd jiuwenswarm-browser
 npm install
 ```
 
-Sync the shared chat UI from the companion package, then build:
+Then build:
 
 ```bash
 npm run build
 ```
 
 This produces a `dist/` directory containing the fully compiled extension.
-
-> **If `sync-webview` fails:** The build script copies `chat.html` from
-> `../jiuwenswarm-jupyterlab/packages/shared-webview/chat.html`. If that path
-> does not exist in your checkout, copy `chat.html` into `src/webview/` manually
-> before running the build.
 
 ---
 

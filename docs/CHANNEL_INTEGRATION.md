@@ -116,11 +116,11 @@ server), but they must be resolved before declaring it "a JiuwenSwarm channel".
 ### 3.2 Channel identity
 
 - The extension sends `channel_id: "browser"` in every `req` body (now centralized
-  in `src/shared/protocol.ts` via `makeRequest`), but the server ignores it (uses
+  in `browser/frontend/src/shared/protocol.ts` via `makeRequest`), but the server ignores it (uses
   `"web"`). Session/telemetry therefore cannot tell a browser-channel request from
   a web-frontend request.
 - The extension's `WS_URL` now attaches `?app_id=<APP_ID>` on the handshake, where
-  `APP_ID` lives in `src/shared/constants.ts` and currently defaults to `"default"`.
+  `APP_ID` lives in `browser/frontend/src/shared/constants.ts` and currently defaults to `"default"`.
   This matches the web channel / server default so **session sharing keeps working**.
 - **At integration time:** flip `APP_ID` to `"browser"` (the gateway reads it from
   the handshake query and routes/scopes this client distinctly), and/or add a real
@@ -129,7 +129,7 @@ server), but they must be resolved before declaring it "a JiuwenSwarm channel".
 ### 3.3 Method/event coverage check
 
 Confirmed available on the server for the methods the extension calls. The names
-are centralized in `GW_METHOD` / `GW_EVENT` in `src/shared/protocol.ts`, mirroring
+are centralized in `GW_METHOD` / `GW_EVENT` in `browser/frontend/src/shared/protocol.ts`, mirroring
 the server's `ReqMethod` / `EventType`:
 
 | Extension method | Server support |

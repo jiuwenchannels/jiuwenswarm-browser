@@ -69,7 +69,6 @@ extension itself is loaded from its built `dist/` / zip and needs no server.
 | `scripts/` (build/pack helpers) | `channels/browser/frontend/scripts/` | keep |
 | `src/` (background, content, sidepanel, shared, popup, options) | `channels/browser/frontend/src/` | keep; `@shared/*` aliases resolve inside the package |
 | `tests/` | `channels/browser/frontend/tests/` (Vitest) | keep; or move to `tests/unit_tests/browser/frontend/` to match monorepo convention |
-| `.github/` (CI) | `channels/browser/frontend/.github/` | keep, or fold into repo CI |
 | `README.md` (overview) | `docs/en/browser-extension/BrowserExtension.md` + `docs/zh/browser-extension/浏览器扩展.md` | already named to match |
 | `USER_GUIDE.md` | `docs/en/browser-extension/BrowserExtensionGuide.md` + `docs/zh/browser-extension/浏览器扩展指南.md` | already named to match |
 | `INSTALLATION.md` | `docs/en/browser-extension/BrowserExtensionInstall.md` + `docs/zh/browser-extension/浏览器扩展安装.md` | already named to match |
@@ -79,6 +78,10 @@ extension itself is loaded from its built `dist/` / zip and needs no server.
 > study), `COPY_TO_JIUWENSWARM.md` (this migration plan), `SIG.md`, `RAT.md`,
 > `ROADMAP.md` (project planning), `STORE_LISTING.md` (store listing copy). These are
 > migration/design artifacts for this repo only and are not product docs.
+>
+> **Not copied — CI:** `.github/` is the **standalone repo's** GitHub Actions
+> workflow and stays at the repo root; it is not part of the `browser/` channel.
+> At copy-in, fold the browser build/test steps into jiuwenswarm's own CI.
 
 ---
 
@@ -99,7 +102,9 @@ extension itself is loaded from its built `dist/` / zip and needs no server.
 5. **CI/build.** The root `Makefile`/build script assembles the Python package.
    The extension's `dist/` should be built by the frontend package's own `npm run
    build` and, if shipping, stored as `channels/browser/frontend/dist/` (mirroring
-   how `app_web.py` serves `channels/web/frontend/dist/`).
+   how `app_web.py` serves `channels/web/frontend/dist/`). The workflow in
+   `browser/frontend/.github/workflows/ci.yml` already runs in
+   `./browser/frontend` (its own working-directory).
 6. **Optional server entrypoint.** Add `app_browser.py` + `jiuwenswarm-browser`
    console script only if the product wants to serve the built extension for
    download; otherwise omit.
