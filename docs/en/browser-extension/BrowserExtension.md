@@ -75,9 +75,8 @@ as a popup window — all features work identically.
 
 | Document | Contents |
 |---|---|
-| [Installation](docs/INSTALLATION.md) | Build, load into Chrome, configure server address |
-| [User Guide](docs/USER_GUIDE.md) | Sessions, pinning pages, shortcuts, chat, settings, troubleshooting |
-| [Roadmap](docs/ROADMAP.md) | Planned next features |
+| [Installation](BrowserExtensionInstall.md) | Build, load into Chrome, configure server address |
+| [User Guide](BrowserExtensionGuide.md) | Sessions, pinning pages, shortcuts, chat, settings, troubleshooting |
 
 ---
 
@@ -90,7 +89,7 @@ npm run build
 
 Then load the `dist/` folder as an unpacked extension in `chrome://extensions`.
 
-See [docs/INSTALLATION.md](docs/INSTALLATION.md) for the full walkthrough.
+See [BrowserExtensionInstall.md](BrowserExtensionInstall.md) for the full walkthrough.
 
 ## Development
 

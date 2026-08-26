@@ -63,7 +63,7 @@ offer one-click re-pin.
 - Replace placeholder icons with production SVG-derived PNGs (5 required sizes)
 - Write store listing: description, screenshots, privacy policy URL
 - Capture listing screenshots and tiles per the step-by-step guide in
-  `docs/STORE_LISTING.md` (needs the built extension + local server; cannot be produced
+  `STORE_LISTING.md` (needs the built extension + local server; cannot be produced
   from code)
 - MV3 security audit: no remote code execution, no eval
 - Test on Chrome Stable and Chrome Beta channels
