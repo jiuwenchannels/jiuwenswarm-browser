@@ -189,6 +189,8 @@ function handleBgMsg(msg: BackgroundReply): void {
         loadPinnedPages(activeId);
         renderSessionChatIfNeeded(activeId);
       }
+      // A session may have been auto-created for a pending summarize; run it now.
+      _maybeSendPendingSummarize();
       break;
     }
 
@@ -200,6 +202,8 @@ function handleBgMsg(msg: BackgroundReply): void {
       picker.update(_sessions, session.id);
       loadPinnedPages(session.id);
       renderSessionChatIfNeeded(session.id);
+      // If this session was auto-created for a pending summarize, run it now.
+      _maybeSendPendingSummarize();
       break;
     }
 
@@ -211,6 +215,8 @@ function handleBgMsg(msg: BackgroundReply): void {
         loadPinnedPages(activeId);
         renderSessionChatIfNeeded(activeId);
       }
+      // A session may have been auto-created for a pending summarize; run it now.
+      _maybeSendPendingSummarize();
       break;
     }
 
@@ -246,9 +252,10 @@ function handleBgMsg(msg: BackgroundReply): void {
     case "summarize_tab": {
       const m = msg as Extract<BackgroundReply, { action: "summarize_tab" }>;
       _contextTabId = m.tabId;
-      _sendUserMessage(
-        "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point."
-      );
+      _pendingSummarizeTabId = m.tabId ?? null;
+      // Sends now if connected + a session exists; otherwise queues until both
+      // are ready (auto-creating a session when connected but none exists).
+      _maybeSendPendingSummarize();
       break;
     }
 
@@ -493,7 +500,15 @@ function renderHistoryAssistant(text: string, ts: number): void {
 }
 
 async function loadSessionChat(sessionId: string): Promise<void> {
-  _chatHistory = await loadChatHistory(sessionId);
+  const history = await loadChatHistory(sessionId);
+  // If a stream is in progress while we were loading (e.g. a "Summarize this
+  // page" was sent immediately after its session was auto-created), preserve
+  // the live exchange. Clearing here would detach the streaming assistant node
+  // (so the answer never becomes visible) and reset _assistantRaw mid-stream.
+  if (_streaming || _assistantEl != null) {
+    return;
+  }
+  _chatHistory = history;
   // Clear any live-rendered messages but keep the empty-state node.
   Array.from(chatMessages.children).forEach((c) => {
     if (c.id !== "chat-empty") c.remove();
@@ -576,7 +591,41 @@ let _lastUserEl: HTMLDivElement | null = null;
 let _lastTurnStart = 0;
 /** Tab the last "summarize this page" / "ask selection" action targeted. */
 let _contextTabId: number | null = null;
+
+/** Prompt used by "Summarize this page" (menu action + auto-summarize on pin). */
+const SUMMARY_PROMPT =
+  "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point.";
+
+/**
+ * A "Summarize this page" tab id queued while the WebSocket is still connecting
+ * (the panel opens just-in-time from the context menu, so the agent connection
+ * may not be up yet). Flushed as soon as the connection is established.
+ */
+let _pendingSummarizeTabId: number | null = null;
 let _connBannerTimer: number | null = null;
+
+/** True while we are auto-creating a session for a queued summarize (avoids duplicates). */
+let _creatingSessionForSummarize = false;
+
+/**
+ * Send a queued "Summarize this page" once the agent is connected AND an active
+ * session exists. Auto-creates a session when connected but none exists (so the
+ * summary never blocks on a "create a session" prompt).
+ */
+function _maybeSendPendingSummarize(): void {
+  if (_pendingSummarizeTabId == null || !_connected) return;
+  if (!_activeSessionId) {
+    if (!_creatingSessionForSummarize) {
+      _creatingSessionForSummarize = true;
+      bridge.createSession("");
+    }
+    return;
+  }
+  _creatingSessionForSummarize = false;
+  _contextTabId = _pendingSummarizeTabId;
+  _pendingSummarizeTabId = null;
+  _sendUserMessage(SUMMARY_PROMPT);
+}
 
 /** Connection status shown at the bottom of the empty state; hidden with it. */
 function updateChatStatus(): void {
@@ -596,6 +645,9 @@ function setConnected(connected: boolean): void {
       _connBannerTimer = null;
     }
     connBanner.classList.remove("show");
+    // A context-menu "Summarize this page" may have arrived before the
+    // WebSocket connected (or before a session existed); send it now.
+    _maybeSendPendingSummarize();
   } else {
     // Debounce: only show the banner if still disconnected after a few seconds,
     // so MV3 service-worker suspension doesn't flash "Lost connection" on every
@@ -644,9 +696,7 @@ function maybeShowCachedResponse(): void {
 function maybeAutoSummarize(page: PinnedPage): void {
   if (!_settings?.autoSummarizeOnPin || !_connected || _streaming) return;
   _contextTabId = page.tabId;
-  _sendUserMessage(
-    "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point."
-  );
+  _sendUserMessage(SUMMARY_PROMPT);
 }
 
 void loadSettings().then((s) => { _settings = s; }).catch(() => {});
@@ -665,7 +715,7 @@ async function refreshSuggestions(): Promise<void> {
         chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
           if (tab?.id == null) return;
           _contextTabId = tab.id;
-          chatInput.value = "Summarize this page in 2-3 short sentences. Be brief and direct — just the key point.";
+          chatInput.value = SUMMARY_PROMPT;
           chatInput.dispatchEvent(new Event("input"));
           chatInput.focus();
         });
