@@ -358,11 +358,7 @@ its own context window limit.
 
 ## Privacy
 
-- The extension sends page content to the **JiuwenSwarm server you configure** (default `ws://127.0.0.1`). If that server runs on your machine, content stays local; if you point the extension at a remote server, content is sent there instead.
-- The extension itself contacts no other service.
-- **LLM note:** your JiuwenSwarm server forwards requests to whatever LLM provider you have configured (a local model or a cloud API). That happens between your server and the LLM, outside the extension's control.
-- Page content is also held in the extension's in-memory cache and Chrome local storage.
-- Sessions are stored on your JiuwenSwarm server.
-- Uninstalling the extension deletes all locally stored data (pinned page metadata and settings). Sessions on the server are unaffected.
+- The extension sends page content to the **JiuwenSwarm server you configure**, which forwards it to your chosen LLM provider. The extension contacts no other service.
+- Sessions are stored on your server; uninstalling the extension deletes only locally stored data.
 
 You can review this at any time from the side panel: **⋯** → **🔒 Privacy**.

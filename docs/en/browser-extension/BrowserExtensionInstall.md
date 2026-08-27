@@ -5,7 +5,7 @@
 | Requirement | Version |
 |---|---|
 | Chrome (or Chromium-based browser) | 114+ (Side Panel API) |
-| JiuwenSwarm server | running locally on any port (default 19000) |
+| JiuwenSwarm server | running on any port (default 19000) |
 | Node.js | 18+ (build only) |
 | npm | 9+ (build only) |
 
@@ -45,7 +45,7 @@ reconnection is needed.
 
 ## 3. Verify the Connection
 
-1. Start your local JiuwenSwarm server (default: `ws://127.0.0.1:19000/ws`).
+1. Start your JiuwenSwarm server (default: `ws://127.0.0.1:19000/ws`).
 2. Click the JiuwenSwarm toolbar icon — the popup shows **"Connected to local server"**
    with a green dot.
 3. If the dot is red, check:

@@ -4,7 +4,7 @@ A Chromium extension that puts the JiuwenSwarm AI agent alongside any page you a
 Pin multiple pages into a research session, ask questions across sources, and let the agent
 act on what you see — all without leaving the browser.
 
-**Requires:** A locally running JiuwenSwarm server (default `ws://127.0.0.1:19000`).
+**Requires:** a JiuwenSwarm server (default `ws://127.0.0.1:19000`).
 
 **Browser support:** Chrome 114+ (Side Panel API). On Chromium-based browsers without the
 Side Panel API (360 Safe Browser, QQ Browser, Sogou Browser), the panel opens automatically

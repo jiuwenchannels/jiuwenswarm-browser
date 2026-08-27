@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "JiuwenSwarm",
   "version": "0.1.0",
-  "description": "AI research assistant — understands any page you are reading. Powered by your local JiuwenSwarm server.",
+  "description": "AI research assistant — understands any page you are reading. Powered by your JiuwenSwarm server.",
 
   "icons": {
     "16":  "icons/icon-16.png",

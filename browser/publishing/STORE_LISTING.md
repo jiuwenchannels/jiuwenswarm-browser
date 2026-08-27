@@ -55,9 +55,7 @@ and answers questions across everything you pinned — no copy-pasting.
 - Full-text search across every pinned page.
 - Dark mode, full keyboard navigation, and English + Simplified Chinese.
 
-**Note:** This extension works with a **JiuwenSwarm server** (default `ws://127.0.0.1`).
-Content goes to that server; it leaves your machine only if the server is remote or its
-LLM provider is a cloud API. See the in-app **🔒 Privacy** disclosure for details.
+**Note:** This extension works with a **JiuwenSwarm server**. Content goes to that server. See the in-app **🔒 Privacy** disclosure for details.
 
 ---
 
