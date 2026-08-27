@@ -44,7 +44,7 @@ export class ChatBridge {
     this._port.onDisconnect.addListener(() => {
       // MV3 terminates the service worker when idle, invalidating this port.
       // The panel stays open, so reconnect and re-sync on our own.
-      log.warn("port disconnected — reconnecting");
+      log.debug("port disconnected — reconnecting");
       this._port = null;
       this._scheduleReconnect();
     });
